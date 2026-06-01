@@ -1,9 +1,10 @@
 .page {
   min-height: 100vh;
   background:
-    radial-gradient(circle at top, rgba(72, 121, 255, 0.18), transparent 34%),
-    linear-gradient(180deg, #07111f 0%, #0c1626 42%, #111827 100%);
-  color: #f8fafc;
+    radial-gradient(circle at top right, rgba(255, 200, 0, 0.35), transparent 42%),
+    radial-gradient(circle at bottom left, rgba(255, 238, 154, 0.45), transparent 50%),
+    var(--color-white);
+  color: var(--color-ink);
   padding: 40px 20px 56px;
 }
 
@@ -21,29 +22,34 @@
 
 .eyebrow {
   display: inline-flex;
-  padding: 6px 12px;
+  padding: 6px 14px;
   margin-bottom: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  border: 1px solid var(--color-ink);
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.6);
-  color: #93c5fd;
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  background: var(--color-yellow);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .hero h1 {
-  max-width: 12ch;
-  font-size: clamp(2.7rem, 7vw, 4.75rem);
-  line-height: 0.96;
-  letter-spacing: -0.05em;
+  max-width: 14ch;
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 8vw, 5.75rem);
+  font-weight: 400;
+  line-height: 0.92;
+  letter-spacing: -0.005em;
+  text-transform: uppercase;
+  color: var(--color-ink);
 }
 
 .lede {
   max-width: 70ch;
   margin-top: 18px;
-  color: #cbd5e1;
+  color: var(--color-ink-soft);
   font-size: 1.05rem;
   line-height: 1.7;
 }
@@ -56,11 +62,10 @@
 
 .card,
 .panel {
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 24px;
-  background: rgba(15, 23, 42, 0.75);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(14px);
+  border: 1.5px solid var(--color-ink);
+  border-radius: 18px;
+  background: var(--color-white);
+  box-shadow: 6px 6px 0 var(--color-yellow);
 }
 
 .card {
@@ -70,19 +75,25 @@
 }
 
 .card strong {
-  font-size: 1.15rem;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--color-ink);
 }
 
 .card span:last-child {
-  color: #cbd5e1;
+  color: var(--color-ink-soft);
   line-height: 1.5;
 }
 
 .cardLabel {
-  color: #93c5fd;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
@@ -104,17 +115,26 @@
 
 .panelHeader h2 {
   margin-bottom: 8px;
-  font-size: 1.35rem;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-ink);
 }
 
 .panelHeader p {
-  color: #cbd5e1;
+  color: var(--color-ink-soft);
   line-height: 1.6;
 }
 
 .copyMessage {
-  color: #86efac;
+  color: var(--color-ink);
   font-size: 0.95rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--color-yellow);
 }
 
 .rankingList {
@@ -129,19 +149,27 @@
   gap: 16px;
   align-items: center;
   padding: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  border-radius: 20px;
-  background: rgba(30, 41, 59, 0.62);
+  border: 1.5px solid var(--color-ink);
+  border-radius: 16px;
+  background: var(--color-off-white);
+}
+
+.rankingItem:nth-child(odd) {
+  background: var(--color-white);
 }
 
 .rankNumber {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
-  font-weight: 800;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--color-yellow);
+  border: 1.5px solid var(--color-ink);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
 }
 
 .playerBlock {
@@ -150,11 +178,15 @@
 }
 
 .playerBlock strong {
-  font-size: 1.08rem;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--color-ink);
 }
 
 .playerBlock span {
-  color: #cbd5e1;
+  color: var(--color-ink);
+  font-size: 0.92rem;
+  font-weight: 500;
 }
 
 .controls,
@@ -168,22 +200,22 @@
 .primaryButton,
 .secondaryButton {
   border-radius: 999px;
-  padding: 10px 14px;
-  font: inherit;
+  padding: 10px 16px;
   font-weight: 700;
+  letter-spacing: 0.02em;
   cursor: pointer;
   transition:
-    transform 0.18s ease,
-    opacity 0.18s ease,
-    background 0.18s ease,
-    border-color 0.18s ease;
+    transform 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .controlButton:disabled,
 .primaryButton:disabled,
 .secondaryButton:disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: 0.4;
 }
 
 .controlButton:hover:not(:disabled),
@@ -192,49 +224,77 @@
   transform: translateY(-1px);
 }
 
-.controlButton,
+.controlButton {
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-white);
+  color: var(--color-ink);
+}
+
+.controlButton:hover:not(:disabled) {
+  background: var(--color-yellow);
+}
+
 .secondaryButton {
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  background: rgba(15, 23, 42, 0.6);
-  color: #f8fafc;
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-white);
+  color: var(--color-ink);
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: var(--color-yellow-soft);
 }
 
 .primaryButton {
-  border: 1px solid transparent;
-  background: linear-gradient(135deg, #60a5fa, #2563eb);
-  color: #eff6ff;
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-yellow);
+  color: var(--color-ink);
+  box-shadow: 3px 3px 0 var(--color-ink);
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--color-yellow-deep);
+  box-shadow: 4px 4px 0 var(--color-ink);
 }
 
 .fieldLabel {
   display: block;
   margin-bottom: 8px;
-  color: #cbd5e1;
-  font-size: 0.95rem;
-  font-weight: 600;
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
 .textarea {
   width: 100%;
   min-height: 92px;
   margin-bottom: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 18px;
-  background: rgba(15, 23, 42, 0.72);
-  color: #f8fafc;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 14px;
+  background: var(--color-white);
+  color: var(--color-ink);
   padding: 14px 16px;
-  font: inherit;
   line-height: 1.5;
   resize: vertical;
 }
 
+.textarea:focus {
+  outline: none;
+  background: #fffdf2;
+  box-shadow: 0 0 0 3px var(--color-yellow);
+}
+
 .textarea::placeholder {
-  color: #94a3b8;
+  color: var(--color-ink);
+  opacity: 0.55;
 }
 
 .shareModal {
   position: fixed;
   inset: 0;
-  background: rgba(7, 17, 31, 0.86);
+  background: rgba(10, 10, 10, 0.58);
   display: grid;
   place-items: center;
   padding: 16px;
@@ -244,14 +304,14 @@
 .shareModalContent {
   width: min(1320px, 100%);
   max-height: calc(100vh - 32px);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 28px;
-  background: rgba(15, 23, 42, 0.94);
+  border: 1.5px solid var(--color-ink);
+  border-radius: 24px;
+  background: var(--color-white);
   padding: 24px;
   display: grid;
   gap: 18px;
   overflow: hidden;
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
+  box-shadow: 10px 10px 0 var(--color-yellow);
 }
 
 .shareModalHeader {
@@ -278,15 +338,15 @@
   width: min(100%, 1120px);
   min-width: 280px;
   margin: 0 auto;
-  border-radius: 24px;
+  border-radius: 20px;
   background:
-    radial-gradient(circle at top right, rgba(96, 165, 250, 0.22), transparent 28%),
-    linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
-  color: #0f172a;
+    radial-gradient(circle at top right, rgba(255, 200, 0, 0.2), transparent 32%),
+    linear-gradient(180deg, #fffef7 0%, #fff9dd 100%);
+  color: var(--color-ink);
   padding: clamp(16px, 1.8vw, 24px);
   display: grid;
   gap: clamp(10px, 1.2vw, 16px);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+  border: 1.5px solid var(--color-ink);
 }
 
 .sharePreviewHeader {
@@ -294,27 +354,31 @@
   justify-content: space-between;
   gap: 16px;
   align-items: flex-start;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+  border-bottom: 1.5px solid var(--color-ink);
   padding-bottom: clamp(8px, 1vw, 14px);
 }
 
 .sharePreviewHeader h3 {
-  font-size: clamp(1.3rem, 2vw, 2rem);
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 2.4vw, 2.4rem);
+  font-weight: 400;
   line-height: 1;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .shareEyebrow {
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: 0.82rem;
+  font-weight: 400;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #2563eb;
+  letter-spacing: 0.14em;
+  color: var(--color-ink);
+  font-family: var(--font-display);
   margin-bottom: 8px;
 }
 
 .shareSubcopy {
-  color: #475569;
+  color: var(--color-ink);
   margin-top: 8px;
   font-size: 0.95rem;
 }
@@ -329,25 +393,29 @@
   display: grid;
   gap: 4px;
   padding: 10px 12px;
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1.5px solid var(--color-ink);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.68);
+  background: rgba(255, 255, 255, 0.88);
 }
 
 .shareHighlightCard span {
-  color: #2563eb;
+  color: var(--color-ink);
   font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
+  font-weight: 400;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
+  font-family: var(--font-display);
 }
 
 .shareHighlightCard strong {
+  font-family: var(--font-display);
   font-size: clamp(0.92rem, 1.05vw, 1.1rem);
+  font-weight: 400;
+  text-transform: uppercase;
 }
 
 .shareHighlightCard p {
-  color: #475569;
+  color: var(--color-ink);
   font-size: 0.8rem;
 }
 
@@ -370,15 +438,16 @@
   gap: 8px;
   padding: 8px 10px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.74);
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid var(--color-ink);
 }
 
 .shareRank {
-  font-weight: 800;
-  color: #2563eb;
+  font-weight: 400;
+  color: var(--color-ink);
   font-size: 0.9rem;
   min-width: 1.25rem;
+  font-family: var(--font-display);
 }
 
 .sharePlayer {
@@ -387,13 +456,14 @@
 }
 
 .sharePlayer strong {
+  color: var(--color-ink);
   font-size: clamp(0.74rem, 0.82vw, 0.9rem);
   line-height: 1.15;
 }
 
 .sharePlayer span {
   font-size: 0.68rem;
-  color: #64748b;
+  color: var(--color-ink);
   font-weight: 700;
   letter-spacing: 0.04em;
 }
@@ -401,10 +471,11 @@
 .shareConference {
   font-size: 0.66rem;
   font-weight: 700;
-  color: #475569;
+  color: var(--color-ink);
   padding: 3px 6px;
   border-radius: 999px;
-  background: rgba(226, 232, 240, 0.85);
+  background: var(--color-yellow-soft);
+  border: 1px solid var(--color-ink);
 }
 
 .shareFooter {
@@ -412,12 +483,13 @@
   justify-content: space-between;
   gap: 12px;
   padding-top: 10px;
-  border-top: 1px solid rgba(15, 23, 42, 0.12);
-  color: #475569;
+  border-top: 1.5px solid var(--color-ink);
+  color: var(--color-ink);
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 400;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
+  font-family: var(--font-display);
 }
 
 .shareModalActions {
