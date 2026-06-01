@@ -20,6 +20,9 @@
 # production
 /build
 
+# crowd consensus aggregates (local dev)
+/data/
+
 # misc
 .DS_Store
 *.pem
