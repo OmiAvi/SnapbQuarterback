@@ -2,52 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import styles from "./page.module.css";
-
-type Quarterback = {
-  id: string;
-  team: string;
-  teamName: string;
-  player: string;
-  conference: "AFC" | "NFC";
-};
-
-const QUARTERBACKS: Quarterback[] = [
-  { id: "ari", team: "ARI", teamName: "Arizona Cardinals", player: "Kyler Murray", conference: "NFC" },
-  { id: "atl", team: "ATL", teamName: "Atlanta Falcons", player: "Michael Penix Jr.", conference: "NFC" },
-  { id: "bal", team: "BAL", teamName: "Baltimore Ravens", player: "Lamar Jackson", conference: "AFC" },
-  { id: "buf", team: "BUF", teamName: "Buffalo Bills", player: "Josh Allen", conference: "AFC" },
-  { id: "car", team: "CAR", teamName: "Carolina Panthers", player: "Bryce Young", conference: "NFC" },
-  { id: "chi", team: "CHI", teamName: "Chicago Bears", player: "Caleb Williams", conference: "NFC" },
-  { id: "cin", team: "CIN", teamName: "Cincinnati Bengals", player: "Joe Burrow", conference: "AFC" },
-  { id: "cle", team: "CLE", teamName: "Cleveland Browns", player: "Joe Flacco", conference: "AFC" },
-  { id: "dal", team: "DAL", teamName: "Dallas Cowboys", player: "Dak Prescott", conference: "NFC" },
-  { id: "den", team: "DEN", teamName: "Denver Broncos", player: "Bo Nix", conference: "AFC" },
-  { id: "det", team: "DET", teamName: "Detroit Lions", player: "Jared Goff", conference: "NFC" },
-  { id: "gb", team: "GB", teamName: "Green Bay Packers", player: "Jordan Love", conference: "NFC" },
-  { id: "hou", team: "HOU", teamName: "Houston Texans", player: "C.J. Stroud", conference: "AFC" },
-  { id: "ind", team: "IND", teamName: "Indianapolis Colts", player: "Anthony Richardson", conference: "AFC" },
-  { id: "jax", team: "JAX", teamName: "Jacksonville Jaguars", player: "Trevor Lawrence", conference: "AFC" },
-  { id: "kc", team: "KC", teamName: "Kansas City Chiefs", player: "Patrick Mahomes", conference: "AFC" },
-  { id: "lv", team: "LV", teamName: "Las Vegas Raiders", player: "Geno Smith", conference: "AFC" },
-  { id: "lac", team: "LAC", teamName: "Los Angeles Chargers", player: "Justin Herbert", conference: "AFC" },
-  { id: "lar", team: "LAR", teamName: "Los Angeles Rams", player: "Matthew Stafford", conference: "NFC" },
-  { id: "mia", team: "MIA", teamName: "Miami Dolphins", player: "Tua Tagovailoa", conference: "AFC" },
-  { id: "min", team: "MIN", teamName: "Minnesota Vikings", player: "J.J. McCarthy", conference: "NFC" },
-  { id: "ne", team: "NE", teamName: "New England Patriots", player: "Drake Maye", conference: "AFC" },
-  { id: "no", team: "NO", teamName: "New Orleans Saints", player: "Tyler Shough", conference: "NFC" },
-  { id: "nyg", team: "NYG", teamName: "New York Giants", player: "Russell Wilson", conference: "NFC" },
-  { id: "nyj", team: "NYJ", teamName: "New York Jets", player: "Justin Fields", conference: "AFC" },
-  { id: "phi", team: "PHI", teamName: "Philadelphia Eagles", player: "Jalen Hurts", conference: "NFC" },
-  { id: "pit", team: "PIT", teamName: "Pittsburgh Steelers", player: "Aaron Rodgers", conference: "AFC" },
-  { id: "sf", team: "SF", teamName: "San Francisco 49ers", player: "Brock Purdy", conference: "NFC" },
-  { id: "sea", team: "SEA", teamName: "Seattle Seahawks", player: "Sam Darnold", conference: "NFC" },
-  { id: "tb", team: "TB", teamName: "Tampa Bay Buccaneers", player: "Baker Mayfield", conference: "NFC" },
-  { id: "ten", team: "TEN", teamName: "Tennessee Titans", player: "Cam Ward", conference: "AFC" },
-  { id: "wsh", team: "WSH", teamName: "Washington Commanders", player: "Jayden Daniels", conference: "NFC" },
-];
-
-const DEFAULT_RANKING = QUARTERBACKS.map(({ id }) => id);
-const QUARTERBACK_MAP = new Map(QUARTERBACKS.map((quarterback) => [quarterback.id, quarterback]));
+import type { Quarterback } from "./lib/quarterbacks";
 
 function moveRankingItem(ranking: string[], from: number, to: number) {
   if (from === to || to < 0 || to >= ranking.length) {
@@ -87,7 +42,7 @@ function extractRankingCode(value: string) {
   return trimmed;
 }
 
-function decodeRanking(value: string) {
+function decodeRanking(value: string, quarterbackMap: Map<string, Quarterback>) {
   const rankingCode = extractRankingCode(value);
 
   if (!rankingCode) {
@@ -97,11 +52,11 @@ function decodeRanking(value: string) {
   const ranking = rankingCode.split(".").filter(Boolean);
   const rankingSet = new Set(ranking);
 
-  if (ranking.length !== DEFAULT_RANKING.length || rankingSet.size !== DEFAULT_RANKING.length) {
+  if (ranking.length !== quarterbackMap.size || rankingSet.size !== quarterbackMap.size) {
     return null;
   }
 
-  if (!ranking.every((id) => QUARTERBACK_MAP.has(id))) {
+  if (!ranking.every((id) => quarterbackMap.has(id))) {
     return null;
   }
 
@@ -115,8 +70,22 @@ function getPlacementMap(ranking: string[]) {
   }, {});
 }
 
-export default function QuarterbackBoard({ initialRankingCode }: { initialRankingCode: string }) {
-  const [ranking, setRanking] = useState(() => decodeRanking(initialRankingCode) ?? DEFAULT_RANKING);
+export default function QuarterbackBoard({
+  quarterbacks,
+  initialRankingCode,
+}: {
+  quarterbacks: Quarterback[];
+  initialRankingCode: string;
+}) {
+  const defaultRanking = useMemo(() => quarterbacks.map(({ id }) => id), [quarterbacks]);
+  const quarterbackMap = useMemo(
+    () => new Map(quarterbacks.map((quarterback) => [quarterback.id, quarterback])),
+    [quarterbacks],
+  );
+
+  const [ranking, setRanking] = useState(
+    () => decodeRanking(initialRankingCode, quarterbackMap) ?? defaultRanking,
+  );
   const [comparisonInput, setComparisonInput] = useState("");
   const [comparisonRanking, setComparisonRanking] = useState<string[] | null>(null);
   const [comparisonError, setComparisonError] = useState("");
@@ -148,7 +117,7 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
     return () => window.clearTimeout(timeout);
   }, [copyMessage]);
 
-  const topFive = ranking.slice(0, 5).map((id) => QUARTERBACK_MAP.get(id)?.player ?? id);
+  const topFive = ranking.slice(0, 5).map((id) => quarterbackMap.get(id)?.player ?? id);
 
   const comparisonRows = useMemo(() => {
     if (!comparisonRanking) {
@@ -160,7 +129,7 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
 
     return ranking
       .map((id) => {
-        const quarterback = QUARTERBACK_MAP.get(id);
+        const quarterback = quarterbackMap.get(id);
 
         if (!quarterback) {
           return null;
@@ -178,13 +147,13 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
       })
       .filter((row): row is NonNullable<typeof row> => Boolean(row))
       .sort((left, right) => right.delta - left.delta || left.mine - right.mine);
-  }, [comparisonRanking, ranking]);
+  }, [comparisonRanking, ranking, quarterbackMap]);
 
   const averageDelta = comparisonRows.length
     ? comparisonRows.reduce((total, row) => total + row.delta, 0) / comparisonRows.length
     : 0;
   const agreementScore = comparisonRows.length
-    ? Math.max(0, Math.round((1 - averageDelta / (DEFAULT_RANKING.length - 1)) * 100))
+    ? Math.max(0, Math.round((1 - averageDelta / (defaultRanking.length - 1)) * 100))
     : 0;
   const biggestGap = comparisonRows[0];
 
@@ -193,14 +162,14 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
   };
 
   const resetRanking = () => {
-    setRanking(DEFAULT_RANKING);
+    setRanking(defaultRanking);
     setComparisonRanking(null);
     setComparisonInput("");
     setComparisonError("");
   };
 
   const loadComparison = () => {
-    const decodedRanking = decodeRanking(comparisonInput);
+    const decodedRanking = decodeRanking(comparisonInput, quarterbackMap);
 
     if (!decodedRanking) {
       setComparisonRanking(null);
@@ -235,8 +204,8 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
         <div className={styles.summaryGrid}>
           <article className={styles.card}>
             <span className={styles.cardLabel}>QB1</span>
-            <strong>{QUARTERBACK_MAP.get(ranking[0])?.player}</strong>
-            <span>{QUARTERBACK_MAP.get(ranking[0])?.teamName}</span>
+            <strong>{quarterbackMap.get(ranking[0])?.player}</strong>
+            <span>{quarterbackMap.get(ranking[0])?.teamName}</span>
           </article>
           <article className={styles.card}>
             <span className={styles.cardLabel}>Top five</span>
@@ -265,7 +234,7 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
 
           <ol className={styles.rankingList}>
             {ranking.map((id, index) => {
-              const quarterback = QUARTERBACK_MAP.get(id);
+              const quarterback = quarterbackMap.get(id);
 
               if (!quarterback) {
                 return null;
