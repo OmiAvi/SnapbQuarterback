@@ -128,6 +128,12 @@
   line-height: 1.6;
 }
 
+.panelActions {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+
 .copyMessage {
   color: var(--color-ink);
   font-size: 0.95rem;
@@ -191,6 +197,12 @@
 
 .controls,
 .buttonRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.modeToggle {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -291,6 +303,100 @@
   opacity: 0.55;
 }
 
+.blindSetup,
+.blindBoard {
+  display: grid;
+  gap: 18px;
+}
+
+.blindSetup p {
+  color: var(--color-ink-soft);
+  line-height: 1.6;
+}
+
+.blindSetup .primaryButton,
+.blindSetup .secondaryButton {
+  width: fit-content;
+}
+
+.currentCard {
+  display: grid;
+  gap: 8px;
+  padding: 22px;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(255, 200, 0, 0.5), rgba(255, 255, 255, 0.95)),
+    var(--color-white);
+  box-shadow: 6px 6px 0 var(--color-yellow);
+}
+
+.currentCard strong {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  font-weight: 400;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+
+.currentCard > span {
+  color: var(--color-ink);
+}
+
+.blindHint {
+  font-weight: 700;
+}
+
+.slotList {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+}
+
+.slot {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 12px 16px;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 16px;
+  background: var(--color-off-white);
+}
+
+.slotFilled {
+  background: var(--color-white);
+}
+
+.slotEmpty {
+  border-style: dashed;
+  background: #fffdf2;
+}
+
+.placeButton {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 10px 18px;
+  border: 1.5px solid var(--color-ink);
+  background: var(--color-yellow);
+  color: var(--color-ink);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 var(--color-ink);
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.placeButton:hover {
+  transform: translateY(-1px);
+  background: var(--color-yellow-deep);
+  box-shadow: 4px 4px 0 var(--color-ink);
+}
+
 .shareModal {
   position: fixed;
   inset: 0;
@@ -327,6 +433,17 @@
 
 .shareControls {
   display: grid;
+}
+
+.shareControlsMuted .textarea {
+  margin-bottom: 10px;
+}
+
+.shareNote {
+  margin-bottom: 14px;
+  color: var(--color-ink-soft);
+  font-size: 0.92rem;
+  line-height: 1.5;
 }
 
 .shareStage {
@@ -425,6 +542,10 @@
   gap: 10px;
 }
 
+.shareGridBlind {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .shareColumn {
   display: grid;
   gap: 6px;
@@ -503,6 +624,10 @@
   .shareGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .shareGridBlind {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 720px) {
@@ -518,6 +643,10 @@
   .panelHeader {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .panelActions {
+    justify-items: start;
   }
 
   .controls {
