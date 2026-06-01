@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QB Bracket — SnapbQuarterback</title>
+<style>
+  :root {
+    --yellow: #ffc800;
+    --yellow-soft: #ffee9a;
+    --yellow-deep: #e6b400;
+    --white: #ffffff;
+    --off-white: #fcfcfc;
+    --ink: #0a0a0a;
+    --muted: #6b6b6b;
+    --display: Impact, "Arial Narrow", "Helvetica Neue Condensed", sans-serif;
+    --body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    background:
+      radial-gradient(circle at top right, rgba(255,200,0,0.35), transparent 42%),
+      radial-gradient(circle at bottom left, rgba(255,238,154,0.45), transparent 50%),
+      var(--white);
+    color: var(--ink);
+    font-family: var(--body);
+    padding: 24px 16px 60px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  .container { width: min(1400px, 100%); margin: 0 auto; }
+  .header {
+    display: flex; flex-wrap: wrap; gap: 16px;
+    align-items: flex-end; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .header-text { display: grid; gap: 6px; }
+  .eyebrow {
+    display: inline-flex; padding: 6px 14px; width: fit-content;
+    border: 1px solid var(--ink); border-radius: 999px;
+    background: var(--yellow); color: var(--ink);
+    font-family: var(--display); font-size: 0.9rem;
+    letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(2rem, 6vw, 3.4rem);
+    line-height: 0.95; letter-spacing: -0.005em;
+    text-transform: uppercase; color: var(--ink);
+  }
+  .sub { color: var(--ink); font-size: 1rem; max-width: 60ch; }
+  .reset-btn {
+    border: 1.5px solid var(--ink); border-radius: 999px;
+    background: var(--white); color: var(--ink);
+    font: inherit; font-family: var(--body); font-weight: 700;
+    letter-spacing: 0.02em; padding: 10px 18px; cursor: pointer;
+    transition: transform .15s ease, background .15s ease;
+  }
+  .reset-btn:hover { background: var(--yellow-soft); transform: translateY(-1px); }
+
+  .champion-banner {
+    margin: 0 0 24px;
+    padding: 22px 24px;
+    border: 1.5px solid var(--ink); border-radius: 18px;
+    background: linear-gradient(135deg, var(--yellow) 0%, var(--yellow-soft) 100%);
+    box-shadow: 6px 6px 0 var(--ink);
+    display: grid; gap: 4px;
+  }
+  .champion-banner .label {
+    font-family: var(--display); font-size: 0.95rem;
+    letter-spacing: 0.18em; text-transform: uppercase;
+  }
+  .champion-banner .name {
+    font-family: var(--display);
+    font-size: clamp(2rem, 6vw, 3.2rem); line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .bracket {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(220px, 1fr));
+    gap: 16px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+  .round {
+    display: flex; flex-direction: column; gap: 12px;
+    min-width: 220px;
+  }
+  .round-title {
+    font-family: var(--display);
+    font-size: 1rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--ink);
+    padding: 8px 12px; border: 1.5px solid var(--ink);
+    border-radius: 999px; background: var(--white);
+    text-align: center;
+  }
+  .matches { display: flex; flex-direction: column; gap: 14px; flex: 1; }
+  .round-r16 .matches,
+  .round-qf .matches,
+  .round-sf .matches,
+  .round-f .matches { justify-content: space-around; }
+  .round-champ .matches { justify-content: center; }
+
+  .match {
+    display: grid; gap: 6px;
+    border: 1.5px solid var(--ink); border-radius: 14px;
+    background: var(--off-white);
+    padding: 8px;
+  }
+  .match.locked { background: #f3f3f3; }
+  .match.locked .slot { opacity: 0.6; }
+
+  .slot {
+    border: 1.5px solid var(--ink); border-radius: 10px;
+    background: var(--white);
+    padding: 10px 12px;
+    text-align: left;
+    font: inherit; font-family: var(--body); color: var(--ink);
+    cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    transition: background .15s ease, transform .12s ease, box-shadow .15s ease;
+    min-height: 44px;
+    width: 100%;
+  }
+  .slot:hover:not(:disabled) { background: var(--yellow-soft); }
+  .slot:active:not(:disabled) { transform: translateY(1px); }
+  .slot:disabled { cursor: not-allowed; }
+  .slot.picked {
+    background: var(--yellow);
+    font-weight: 800;
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .slot.eliminated { color: var(--muted); }
+  .slot.eliminated .slot-name { text-decoration: line-through; }
+  .slot.empty .slot-name { color: var(--muted); font-style: italic; }
+  .slot-mark {
+    display: inline-block; width: 18px; height: 18px;
+    border-radius: 4px; border: 1.5px solid var(--ink);
+    flex-shrink: 0;
+    background: var(--white);
+  }
+  .slot.picked .slot-mark { background: var(--ink); }
+  .slot-name { flex: 1; }
+
+  .champ-card {
+    display: grid; gap: 8px;
+    padding: 22px 18px;
+    border: 1.5px solid var(--ink); border-radius: 16px;
+    background: var(--yellow); box-shadow: 6px 6px 0 var(--ink);
+    text-align: center;
+    min-height: 140px;
+    align-content: center;
+  }
+  .champ-card .label {
+    font-family: var(--display);
+    font-size: 0.95rem; letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  .champ-card .name {
+    font-family: var(--display);
+    font-size: 1.6rem; line-height: 1.05;
+    text-transform: uppercase;
+  }
+  .champ-card.empty {
+    background: var(--off-white);
+    border-style: dashed;
+  }
+  .champ-card.empty .name { color: var(--muted); font-style: italic; }
+
+  @media (max-width: 880px) {
+    body { padding: 18px 12px 60px; }
+    .header { flex-direction: column; align-items: stretch; }
+    .reset-btn { width: 100%; padding: 12px 18px; }
+    .bracket {
+      grid-template-columns: 1fr;
+      gap: 22px; overflow-x: visible;
+    }
+    .round { min-width: 0; }
+    .round-title { font-size: 1.05rem; padding: 10px; }
+    .match { padding: 10px; gap: 8px; }
+    .slot { padding: 14px 14px; min-height: 52px; font-size: 1rem; }
+    .champ-card { min-height: 110px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="header">
+    <div class="header-text">
+      <span class="eyebrow">QB Bracket</span>
+      <h1>Pick Your QB Champion</h1>
+      <p class="sub">Tap a name to advance. Later rounds unlock once both feeders are decided. Changing an earlier pick clears anything downstream that depended on it.</p>
+    </div>
+    <button id="reset" class="reset-btn" type="button">Reset bracket</button>
+  </header>
+
+  <div id="champion-banner" class="champion-banner" hidden>
+    <span class="label">Champion</span>
+    <span id="champion-name" class="name"></span>
+  </div>
+
+  <div class="bracket" id="bracket" aria-label="Single-elimination bracket"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var ROUNDS = [
+    { key: "r32", title: "Round of 32", matches: 16 },
+    { key: "r16", title: "Round of 16", matches: 8 },
+    { key: "qf",  title: "Quarterfinals", matches: 4 },
+    { key: "sf",  title: "Semifinals", matches: 2 },
+    { key: "f",   title: "Final", matches: 1 }
+  ];
+
+  var R32 = [
+    ["Patrick Mahomes", "Geno Smith"],
+    ["Baker Mayfield", "Trevor Lawrence"],
+    ["Jayden Daniels", "Daniel Jones"],
+    ["Dak Prescott", "Cam Ward"],
+    ["Joe Burrow", "Malik Willis"],
+    ["C.J. Stroud", "Bryce Young"],
+    ["Matthew Stafford", "Tyler Shough"],
+    ["Jordan Love", "Aaron Rodgers"],
+    ["Lamar Jackson", "Deshaun Watson"],
+    ["Jared Goff", "Kyler Murray"],
+    ["Caleb Williams", "Kirk Cousins"],
+    ["Justin Herbert", "Michael Penix Jr."],
+    ["Josh Allen", "Jacoby Brissett"],
+    ["Jalen Hurts", "Bo Nix"],
+    ["Drake Maye", "Jaxson Dart"],
+    ["Brock Purdy", "Sam Darnold"]
+  ];
+
+  var STORAGE_KEY = "snapbq:bracket:v1";
+
+  var picks = ROUNDS.map(function (r) {
+    return new Array(r.matches).fill(null);
+  });
+
+  function loadFromStorage() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return;
+      var data = JSON.parse(raw);
+      if (!data || !Array.isArray(data.picks)) return;
+      if (data.picks.length !== ROUNDS.length) return;
+      for (var i = 0; i < ROUNDS.length; i++) {
+        if (!Array.isArray(data.picks[i])) return;
+        if (data.picks[i].length !== ROUNDS[i].matches) return;
+      }
+      for (var r = 0; r < ROUNDS.length; r++) {
+        for (var m = 0; m < ROUNDS[r].matches; m++) {
+          var v = data.picks[r][m];
+          picks[r][m] = (v === 0 || v === 1) ? v : null;
+        }
+      }
+    } catch (e) {}
+  }
+
+  function persist() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ picks: picks }));
+    } catch (e) {}
+  }
+
+  function getParticipant(round, matchIdx, side) {
+    if (round === 0) return R32[matchIdx][side];
+    var feederIdx = matchIdx * 2 + side;
+    return getWinner(round - 1, feederIdx);
+  }
+
+  function getWinner(round, matchIdx) {
+    var pick = picks[round][matchIdx];
+    if (pick === null) return null;
+    return getParticipant(round, matchIdx, pick);
+  }
+
+  function setPick(round, matchIdx, side) {
+    if (picks[round][matchIdx] === side) return;
+    picks[round][matchIdx] = side;
+    propagateReset(round, matchIdx);
+    persist();
+    render();
+  }
+
+  function propagateReset(round, matchIdx) {
+    var nextRound = round + 1;
+    if (nextRound >= ROUNDS.length) return;
+    var nextMatchIdx = Math.floor(matchIdx / 2);
+    var fedSide = matchIdx % 2;
+    if (picks[nextRound][nextMatchIdx] === fedSide) {
+      picks[nextRound][nextMatchIdx] = null;
+      propagateReset(nextRound, nextMatchIdx);
+    }
+  }
+
+  function resetAll() {
+    for (var r = 0; r < ROUNDS.length; r++) {
+      for (var m = 0; m < ROUNDS[r].matches; m++) {
+        picks[r][m] = null;
+      }
+    }
+    persist();
+    render();
+  }
+
+  function el(tag, attrs, children) {
+    var node = document.createElement(tag);
+    if (attrs) {
+      for (var k in attrs) {
+        var v = attrs[k];
+        if (k === "class") node.className = v;
+        else if (k === "text") node.textContent = v;
+        else if (k.indexOf("on") === 0 && typeof v === "function") {
+          node.addEventListener(k.slice(2).toLowerCase(), v);
+        } else if (v === true) {
+          node.setAttribute(k, "");
+        } else if (v === false || v == null) {
+          // skip
+        } else {
+          node.setAttribute(k, v);
+        }
+      }
+    }
+    if (children) {
+      for (var i = 0; i < children.length; i++) {
+        var c = children[i];
+        if (c == null) continue;
+        node.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+      }
+    }
+    return node;
+  }
+
+  function renderSlot(round, matchIdx, side, participant, pick, locked) {
+    var picked = pick === side;
+    var classes = ["slot"];
+    if (picked) classes.push("picked");
+    if (pick !== null && !picked && participant !== null) classes.push("eliminated");
+    if (participant === null) classes.push("empty");
+
+    var attrs = {
+      class: classes.join(" "),
+      type: "button",
+      "aria-pressed": picked ? "true" : "false"
+    };
+    if (locked || participant === null) {
+      attrs.disabled = true;
+    } else {
+      attrs.onclick = function () { setPick(round, matchIdx, side); };
+    }
+
+    return el("button", attrs, [
+      el("span", { class: "slot-mark" }),
+      el("span", { class: "slot-name", text: participant || "TBD" })
+    ]);
+  }
+
+  function renderMatch(round, matchIdx) {
+    var top = getParticipant(round, matchIdx, 0);
+    var bottom = getParticipant(round, matchIdx, 1);
+    var pick = picks[round][matchIdx];
+    var locked = top === null || bottom === null;
+
+    return el("div", { class: "match" + (locked ? " locked" : "") }, [
+      renderSlot(round, matchIdx, 0, top, pick, locked),
+      renderSlot(round, matchIdx, 1, bottom, pick, locked)
+    ]);
+  }
+
+  function render() {
+    var bracket = document.getElementById("bracket");
+    bracket.innerHTML = "";
+
+    for (var r = 0; r < ROUNDS.length; r++) {
+      var roundDef = ROUNDS[r];
+      var roundEl = el("div", { class: "round round-" + roundDef.key });
+      roundEl.appendChild(el("div", { class: "round-title", text: roundDef.title }));
+      var matchesEl = el("div", { class: "matches" });
+      for (var m = 0; m < roundDef.matches; m++) {
+        matchesEl.appendChild(renderMatch(r, m));
+      }
+      roundEl.appendChild(matchesEl);
+      bracket.appendChild(roundEl);
+    }
+
+    var champion = getWinner(ROUNDS.length - 1, 0);
+    var champRound = el("div", { class: "round round-champ" });
+    champRound.appendChild(el("div", { class: "round-title", text: "Champion" }));
+    var champWrap = el("div", { class: "matches" });
+    var champCard = el("div", { class: "champ-card" + (champion ? "" : " empty") }, [
+      el("span", { class: "label", text: "Champion" }),
+      el("span", { class: "name", text: champion || "TBD" })
+    ]);
+    champWrap.appendChild(champCard);
+    champRound.appendChild(champWrap);
+    bracket.appendChild(champRound);
+
+    var banner = document.getElementById("champion-banner");
+    var nameEl = document.getElementById("champion-name");
+    if (champion) {
+      banner.hidden = false;
+      nameEl.textContent = champion;
+    } else {
+      banner.hidden = true;
+      nameEl.textContent = "";
+    }
+  }
+
+  document.getElementById("reset").addEventListener("click", function () {
+    if (window.confirm("Reset the entire bracket? This clears every pick.")) {
+      resetAll();
+    }
+  });
+
+  loadFromStorage();
+  render();
+})();
+</script>
+</body>
+</html>
