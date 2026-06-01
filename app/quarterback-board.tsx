@@ -465,6 +465,13 @@ export default function QuarterbackBoard({
                 >
                   Blind ranking
                 </button>
+                <button
+                  className={styles.secondaryButton}
+                  onClick={() => window.open("/bracket.html", "_blank", "noopener")}
+                  type="button"
+                >
+                  QB Bracket
+                </button>
               </div>
               <div className={styles.buttonRow}>
                 <button className={styles.secondaryButton} onClick={resetRanking} type="button">
