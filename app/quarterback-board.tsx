@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import html2canvas from "html2canvas";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./page.module.css";
 
 type Quarterback = {
@@ -117,10 +118,9 @@ function getPlacementMap(ranking: string[]) {
 
 export default function QuarterbackBoard({ initialRankingCode }: { initialRankingCode: string }) {
   const [ranking, setRanking] = useState(() => decodeRanking(initialRankingCode) ?? DEFAULT_RANKING);
-  const [comparisonInput, setComparisonInput] = useState("");
-  const [comparisonRanking, setComparisonRanking] = useState<string[] | null>(null);
-  const [comparisonError, setComparisonError] = useState("");
-  const [copyMessage, setCopyMessage] = useState("");
+  const [shareViewOpen, setShareViewOpen] = useState(false);
+  const [shareMessage, setShareMessage] = useState("");
+  const sharePreviewRef = useRef<HTMLDivElement | null>(null);
 
   const shareCode = useMemo(() => encodeRanking(ranking), [ranking]);
   const shareUrl = useMemo(() => {
@@ -140,53 +140,23 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
   }, [shareCode]);
 
   useEffect(() => {
-    if (!copyMessage) {
+    if (!shareMessage) {
       return;
     }
 
-    const timeout = window.setTimeout(() => setCopyMessage(""), 2000);
+    const timeout = window.setTimeout(() => setShareMessage(""), 2000);
     return () => window.clearTimeout(timeout);
-  }, [copyMessage]);
+  }, [shareMessage]);
 
   const topFive = ranking.slice(0, 5).map((id) => QUARTERBACK_MAP.get(id)?.player ?? id);
+  const sharePlacements = useMemo(() => getPlacementMap(ranking), [ranking]);
+  const shareColumns = useMemo(() => {
+    const rowsPerColumn = 8;
 
-  const comparisonRows = useMemo(() => {
-    if (!comparisonRanking) {
-      return [];
-    }
-
-    const myPlacements = getPlacementMap(ranking);
-    const theirPlacements = getPlacementMap(comparisonRanking);
-
-    return ranking
-      .map((id) => {
-        const quarterback = QUARTERBACK_MAP.get(id);
-
-        if (!quarterback) {
-          return null;
-        }
-
-        const mine = myPlacements[id];
-        const theirs = theirPlacements[id];
-
-        return {
-          quarterback,
-          mine,
-          theirs,
-          delta: Math.abs(mine - theirs),
-        };
-      })
-      .filter((row): row is NonNullable<typeof row> => Boolean(row))
-      .sort((left, right) => right.delta - left.delta || left.mine - right.mine);
-  }, [comparisonRanking, ranking]);
-
-  const averageDelta = comparisonRows.length
-    ? comparisonRows.reduce((total, row) => total + row.delta, 0) / comparisonRows.length
-    : 0;
-  const agreementScore = comparisonRows.length
-    ? Math.max(0, Math.round((1 - averageDelta / (DEFAULT_RANKING.length - 1)) * 100))
-    : 0;
-  const biggestGap = comparisonRows[0];
+    return Array.from({ length: Math.ceil(ranking.length / rowsPerColumn) }, (_, columnIndex) =>
+      ranking.slice(columnIndex * rowsPerColumn, columnIndex * rowsPerColumn + rowsPerColumn),
+    );
+  }, [ranking]);
 
   const updateRanking = (from: number, to: number) => {
     setRanking((currentRanking) => moveRankingItem(currentRanking, from, to));
@@ -194,31 +164,67 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
 
   const resetRanking = () => {
     setRanking(DEFAULT_RANKING);
-    setComparisonRanking(null);
-    setComparisonInput("");
-    setComparisonError("");
-  };
-
-  const loadComparison = () => {
-    const decodedRanking = decodeRanking(comparisonInput);
-
-    if (!decodedRanking) {
-      setComparisonRanking(null);
-      setComparisonError("Paste a SnapbQuarterback share link or ranking code to compare boards.");
-      return;
-    }
-
-    setComparisonRanking(decodedRanking);
-    setComparisonError("");
   };
 
   const copyValue = async (value: string, label: string) => {
     try {
       await navigator.clipboard.writeText(value);
-      setCopyMessage(`${label} copied.`);
+      setShareMessage(`${label} copied.`);
     } catch {
-      setCopyMessage(`Could not copy ${label.toLowerCase()}.`);
+      setShareMessage(`Could not copy ${label.toLowerCase()}.`);
     }
+  };
+
+  const downloadShareImage = async () => {
+    if (!sharePreviewRef.current) {
+      setShareMessage("Share view not ready yet.");
+      return;
+    }
+
+    try {
+      const canvas = await html2canvas(sharePreviewRef.current, {
+        backgroundColor: "#f8fbff",
+        scale: window.devicePixelRatio > 1 ? 2 : 1,
+      });
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve));
+
+      if (!blob) {
+        throw new Error("no-blob");
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "snapbquarterback-board.png";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setShareMessage("Image downloaded.");
+    } catch {
+      setShareMessage("Could not download image.");
+    }
+  };
+
+  const shareBoardLink = async () => {
+    if (typeof navigator === "undefined") {
+      return;
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "SnapbQuarterback board",
+          text: "Check out my QB rankings.",
+          url: shareUrl,
+        });
+        return;
+      } catch {
+        // Fall back to copying the link if the share sheet is dismissed or unavailable.
+      }
+    }
+
+    await copyValue(shareUrl, "Link");
   };
 
   return (
@@ -243,11 +249,6 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
             <strong>{topFive.join(", ")}</strong>
             <span>Instantly updates as you reorder the board.</span>
           </article>
-          <article className={styles.card}>
-            <span className={styles.cardLabel}>Saved format</span>
-            <strong>{shareCode}</strong>
-            <span>Keep the ranking code or full link to reopen the exact same board later.</span>
-          </article>
         </div>
       </section>
 
@@ -258,9 +259,14 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
               <h2>Your ranking</h2>
               <p>Use the controls to move quarterbacks up or down until the board matches your take.</p>
             </div>
-            <button className={styles.secondaryButton} onClick={resetRanking} type="button">
-              Reset board
-            </button>
+            <div className={styles.buttonRow}>
+              <button className={styles.secondaryButton} onClick={() => setShareViewOpen(true)} type="button">
+                Share board
+              </button>
+              <button className={styles.secondaryButton} onClick={resetRanking} type="button">
+                Reset board
+              </button>
+            </div>
           </div>
 
           <ol className={styles.rankingList}>
@@ -323,104 +329,105 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
             })}
           </ol>
         </div>
+      </section>
 
-        <div className={styles.sidebar}>
-          <section className={styles.panel}>
-            <div className={styles.panelHeader}>
+      {shareViewOpen ? (
+        <div className={styles.shareModal}>
+          <div className={styles.shareModalContent}>
+            <div className={styles.shareModalHeader}>
               <div>
                 <h2>Share your board</h2>
-                <p>Send the full link or just the compact ranking code.</p>
+                <p>Copy the link or save the full ranking card below.</p>
               </div>
-              {copyMessage ? <span className={styles.copyMessage}>{copyMessage}</span> : null}
+              {shareMessage ? <span className={styles.copyMessage}>{shareMessage}</span> : null}
             </div>
-            <label className={styles.fieldLabel} htmlFor="share-url">
-              Share link
-            </label>
-            <textarea className={styles.textarea} id="share-url" readOnly value={shareUrl} />
-            <button className={styles.primaryButton} onClick={() => copyValue(shareUrl, "Link")} type="button">
-              Copy share link
-            </button>
 
-            <label className={styles.fieldLabel} htmlFor="share-code">
-              Savable ranking code
-            </label>
-            <textarea className={styles.textarea} id="share-code" readOnly value={shareCode} />
-            <button className={styles.secondaryButton} onClick={() => copyValue(shareCode, "Code")} type="button">
-              Copy ranking code
-            </button>
-          </section>
-
-          <section className={styles.panel}>
-            <div className={styles.panelHeader}>
-              <div>
-                <h2>Compare with someone else</h2>
-                <p>Paste another fan&apos;s link or ranking code to spot the biggest disagreements.</p>
+            <div className={styles.shareControls}>
+              <label className={styles.fieldLabel} htmlFor="share-url">
+                Share link
+              </label>
+              <textarea className={styles.textarea} id="share-url" readOnly value={shareUrl} />
+              <div className={styles.buttonRow}>
+                <button className={styles.secondaryButton} onClick={shareBoardLink} type="button">
+                  Share link
+                </button>
+                <button className={styles.primaryButton} onClick={() => copyValue(shareUrl, "Link")} type="button">
+                  Copy link
+                </button>
               </div>
             </div>
-            <label className={styles.fieldLabel} htmlFor="comparison-input">
-              Opponent link or code
-            </label>
-            <textarea
-              className={styles.textarea}
-              id="comparison-input"
-              onChange={(event) => setComparisonInput(event.target.value)}
-              placeholder="https://.../SnapbQuarterback?ranking=..."
-              value={comparisonInput}
-            />
-            <div className={styles.buttonRow}>
-              <button className={styles.primaryButton} onClick={loadComparison} type="button">
-                Compare boards
-              </button>
-              <button
-                className={styles.secondaryButton}
-                onClick={() => {
-                  setComparisonInput("");
-                  setComparisonRanking(null);
-                  setComparisonError("");
-                }}
-                type="button"
-              >
-                Clear
-              </button>
-            </div>
-            {comparisonError ? <p className={styles.error}>{comparisonError}</p> : null}
 
-            {comparisonRanking ? (
-              <div className={styles.comparisonPanel}>
-                <div className={styles.comparisonStats}>
-                  <article className={styles.card}>
-                    <span className={styles.cardLabel}>Agreement score</span>
-                    <strong>{agreementScore}%</strong>
-                    <span>Based on average rank distance across all 32 quarterbacks.</span>
+            <div className={styles.shareStage}>
+              <div className={styles.sharePreview} ref={sharePreviewRef}>
+                <header className={styles.sharePreviewHeader}>
+                  <div>
+                    <p className={styles.shareEyebrow}>SnapbQuarterback</p>
+                    <h3>Your QB ranking</h3>
+                    <p className={styles.shareSubcopy}>Saved on {new Date().toLocaleDateString()}</p>
+                  </div>
+                </header>
+
+                <div className={styles.shareHighlights}>
+                  <article className={styles.shareHighlightCard}>
+                    <span>QB1</span>
+                    <strong>{QUARTERBACK_MAP.get(ranking[0])?.player}</strong>
+                    <p>{QUARTERBACK_MAP.get(ranking[0])?.teamName}</p>
                   </article>
-                  <article className={styles.card}>
-                    <span className={styles.cardLabel}>Biggest disagreement</span>
-                    <strong>{biggestGap?.quarterback.player}</strong>
-                    <span>
-                      You have him {biggestGap?.mine}, they have him {biggestGap?.theirs}.
-                    </span>
+                  <article className={styles.shareHighlightCard}>
+                    <span>Top 3</span>
+                    <strong>{topFive.slice(0, 3).join(", ")}</strong>
+                    <p>Headliners from this board</p>
+                  </article>
+                  <article className={styles.shareHighlightCard}>
+                    <span>Format</span>
+                    <strong>1 through 32</strong>
+                    <p>All current starters in one frame</p>
                   </article>
                 </div>
-                <div className={styles.comparisonTable}>
-                  {comparisonRows.slice(0, 8).map((row) => (
-                    <div className={styles.comparisonRow} key={row.quarterback.id}>
-                      <div>
-                        <strong>{row.quarterback.player}</strong>
-                        <span>{row.quarterback.team}</span>
-                      </div>
-                      <div className={styles.comparisonRanks}>
-                        <span>You: {row.mine}</span>
-                        <span>Them: {row.theirs}</span>
-                        <span>Δ {row.delta}</span>
-                      </div>
+
+                <div className={styles.shareGrid}>
+                  {shareColumns.map((column, columnIndex) => (
+                    <div className={styles.shareColumn} key={`share-column-${columnIndex}`}>
+                      {column.map((id) => {
+                        const quarterback = QUARTERBACK_MAP.get(id);
+
+                        if (!quarterback) {
+                          return null;
+                        }
+
+                        return (
+                          <div className={styles.shareRow} key={`share-${quarterback.id}`}>
+                            <span className={styles.shareRank}>{sharePlacements[id]}</span>
+                            <div className={styles.sharePlayer}>
+                              <strong>{quarterback.player}</strong>
+                              <span>{quarterback.team}</span>
+                            </div>
+                            <span className={styles.shareConference}>{quarterback.conference}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>
+
+                <footer className={styles.shareFooter}>
+                  <span>snapbquarterback</span>
+                  <span>Build yours. Save it. Debate it.</span>
+                </footer>
               </div>
-            ) : null}
-          </section>
+            </div>
+
+            <div className={styles.shareModalActions}>
+              <button className={styles.primaryButton} onClick={downloadShareImage} type="button">
+                Download PNG
+              </button>
+              <button className={styles.secondaryButton} onClick={() => setShareViewOpen(false)} type="button">
+                Close
+              </button>
+            </div>
+          </div>
         </div>
-      </section>
+      ) : null}
     </main>
   );
 }
