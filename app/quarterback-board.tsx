@@ -488,7 +488,15 @@ export default function QuarterbackBoard({
 
                 return (
                   <li className={styles.rankingItem} key={quarterback.id}>
-                    <div className={styles.rankNumber}>{index + 1}</div>
+                    {quarterback.espnPlayerId ? (
+                      <img
+                        alt={quarterback.player}
+                        className={styles.headshot}
+                        src={`https://a.espncdn.com/i/headshots/nfl/players/full/${quarterback.espnPlayerId}.png`}
+                      />
+                    ) : (
+                      <div className={styles.rankNumber}>{index + 1}</div>
+                    )}
                     <div className={styles.playerBlock}>
                       <strong>{quarterback.player}</strong>
                       <span>
@@ -622,7 +630,15 @@ export default function QuarterbackBoard({
 
                   return (
                     <li className={styles.rankingItem} key={`blind-finish-${quarterback.id}`}>
-                      <div className={styles.rankNumber}>{index + 1}</div>
+                      {quarterback.espnPlayerId ? (
+                        <img
+                          alt={quarterback.player}
+                          className={styles.headshot}
+                          src={`https://a.espncdn.com/i/headshots/nfl/players/full/${quarterback.espnPlayerId}.png`}
+                        />
+                      ) : (
+                        <div className={styles.rankNumber}>{index + 1}</div>
+                      )}
                       <div className={styles.playerBlock}>
                         <strong>{quarterback.player}</strong>
                         <span>

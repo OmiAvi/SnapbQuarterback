@@ -12,6 +12,7 @@ export type Quarterback = {
   teamName: string;
   player: string;
   conference: "AFC" | "NFC";
+  espnPlayerId?: string;
 };
 
 // Fallback starters double as the default board if ESPN is unreachable.
@@ -79,8 +80,8 @@ async function getCurrentSeason(): Promise<number> {
   }
 }
 
-// Returns the live starting QB's display name for a team, or null on any failure.
-async function fetchStarter(espnId: string, season: number): Promise<string | null> {
+// Returns the live starting QB's display name and ESPN player ID, or null on any failure.
+async function fetchStarter(espnId: string, season: number): Promise<{ name: string; playerId: string } | null> {
   try {
     const depth = (await fetchJson(DEPTHCHART_URL(season, espnId), QB_TTL)) as { items?: EspnDepthItem[] };
 
@@ -95,8 +96,14 @@ async function fetchStarter(espnId: string, season: number): Promise<string | nu
     }
     if (!ref) return null;
 
+    const playerIdMatch = ref.match(/\/athletes\/(\d+)/);
+    const playerId = playerIdMatch?.[1];
+
     const athlete = (await fetchJson(ref, QB_TTL)) as { displayName?: string };
-    return athlete?.displayName ?? null;
+    const name = athlete?.displayName;
+
+    if (!name || !playerId) return null;
+    return { name, playerId };
   } catch {
     return null;
   }
@@ -110,7 +117,8 @@ export async function getStartingQuarterbacks(): Promise<Quarterback[]> {
   return Promise.all(
     QUARTERBACKS.map(async (qb) => {
       const live = await fetchStarter(qb.espnId, season);
-      return live ? { ...qb, player: live } : qb;
+      if (!live) return qb;
+      return { ...qb, player: live.name, espnPlayerId: live.playerId };
     }),
   );
 }
