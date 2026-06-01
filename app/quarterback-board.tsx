@@ -1,53 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  computeTakeMetrics,
+  getHeatLabel,
+  type ConsensusSnapshot,
+} from "../lib/consensus";
+import { DEFAULT_RANKING, QUARTERBACK_MAP } from "./quarterbacks";
+import PlayerAvatar from "./player-avatar";
 import styles from "./page.module.css";
-
-type Quarterback = {
-  id: string;
-  team: string;
-  teamName: string;
-  player: string;
-  conference: "AFC" | "NFC";
-};
-
-const QUARTERBACKS: Quarterback[] = [
-  { id: "ari", team: "ARI", teamName: "Arizona Cardinals", player: "Kyler Murray", conference: "NFC" },
-  { id: "atl", team: "ATL", teamName: "Atlanta Falcons", player: "Michael Penix Jr.", conference: "NFC" },
-  { id: "bal", team: "BAL", teamName: "Baltimore Ravens", player: "Lamar Jackson", conference: "AFC" },
-  { id: "buf", team: "BUF", teamName: "Buffalo Bills", player: "Josh Allen", conference: "AFC" },
-  { id: "car", team: "CAR", teamName: "Carolina Panthers", player: "Bryce Young", conference: "NFC" },
-  { id: "chi", team: "CHI", teamName: "Chicago Bears", player: "Caleb Williams", conference: "NFC" },
-  { id: "cin", team: "CIN", teamName: "Cincinnati Bengals", player: "Joe Burrow", conference: "AFC" },
-  { id: "cle", team: "CLE", teamName: "Cleveland Browns", player: "Joe Flacco", conference: "AFC" },
-  { id: "dal", team: "DAL", teamName: "Dallas Cowboys", player: "Dak Prescott", conference: "NFC" },
-  { id: "den", team: "DEN", teamName: "Denver Broncos", player: "Bo Nix", conference: "AFC" },
-  { id: "det", team: "DET", teamName: "Detroit Lions", player: "Jared Goff", conference: "NFC" },
-  { id: "gb", team: "GB", teamName: "Green Bay Packers", player: "Jordan Love", conference: "NFC" },
-  { id: "hou", team: "HOU", teamName: "Houston Texans", player: "C.J. Stroud", conference: "AFC" },
-  { id: "ind", team: "IND", teamName: "Indianapolis Colts", player: "Anthony Richardson", conference: "AFC" },
-  { id: "jax", team: "JAX", teamName: "Jacksonville Jaguars", player: "Trevor Lawrence", conference: "AFC" },
-  { id: "kc", team: "KC", teamName: "Kansas City Chiefs", player: "Patrick Mahomes", conference: "AFC" },
-  { id: "lv", team: "LV", teamName: "Las Vegas Raiders", player: "Geno Smith", conference: "AFC" },
-  { id: "lac", team: "LAC", teamName: "Los Angeles Chargers", player: "Justin Herbert", conference: "AFC" },
-  { id: "lar", team: "LAR", teamName: "Los Angeles Rams", player: "Matthew Stafford", conference: "NFC" },
-  { id: "mia", team: "MIA", teamName: "Miami Dolphins", player: "Tua Tagovailoa", conference: "AFC" },
-  { id: "min", team: "MIN", teamName: "Minnesota Vikings", player: "J.J. McCarthy", conference: "NFC" },
-  { id: "ne", team: "NE", teamName: "New England Patriots", player: "Drake Maye", conference: "AFC" },
-  { id: "no", team: "NO", teamName: "New Orleans Saints", player: "Tyler Shough", conference: "NFC" },
-  { id: "nyg", team: "NYG", teamName: "New York Giants", player: "Russell Wilson", conference: "NFC" },
-  { id: "nyj", team: "NYJ", teamName: "New York Jets", player: "Justin Fields", conference: "AFC" },
-  { id: "phi", team: "PHI", teamName: "Philadelphia Eagles", player: "Jalen Hurts", conference: "NFC" },
-  { id: "pit", team: "PIT", teamName: "Pittsburgh Steelers", player: "Aaron Rodgers", conference: "AFC" },
-  { id: "sf", team: "SF", teamName: "San Francisco 49ers", player: "Brock Purdy", conference: "NFC" },
-  { id: "sea", team: "SEA", teamName: "Seattle Seahawks", player: "Sam Darnold", conference: "NFC" },
-  { id: "tb", team: "TB", teamName: "Tampa Bay Buccaneers", player: "Baker Mayfield", conference: "NFC" },
-  { id: "ten", team: "TEN", teamName: "Tennessee Titans", player: "Cam Ward", conference: "AFC" },
-  { id: "wsh", team: "WSH", teamName: "Washington Commanders", player: "Jayden Daniels", conference: "NFC" },
-];
-
-const DEFAULT_RANKING = QUARTERBACKS.map(({ id }) => id);
-const QUARTERBACK_MAP = new Map(QUARTERBACKS.map((quarterback) => [quarterback.id, quarterback]));
+import ShareCard, { type ShareCardVariant } from "./share-card";
+import { copyCardPngToClipboard, downloadCardPng } from "./share-image";
 
 function moveRankingItem(ranking: string[], from: number, to: number) {
   if (from === to || to < 0 || to >= ranking.length) {
@@ -121,6 +84,20 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
   const [comparisonRanking, setComparisonRanking] = useState<string[] | null>(null);
   const [comparisonError, setComparisonError] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
+  const [imageVariant, setImageVariant] = useState<ShareCardVariant>("top5");
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [consensus, setConsensus] = useState<ConsensusSnapshot | null>(null);
+
+  const lastSubmittedCode = useRef("");
+
+  const hostname = useSyncExternalStore(
+    () => () => {},
+    () => window.location.host || "snapbquarterback.com",
+    () => "snapbquarterback.com",
+  );
+
+  const top5CardRef = useRef<HTMLDivElement>(null);
+  const fullCardRef = useRef<HTMLDivElement>(null);
 
   const shareCode = useMemo(() => encodeRanking(ranking), [ranking]);
   const shareUrl = useMemo(() => {
@@ -130,6 +107,58 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
 
     return `${window.location.origin}${window.location.pathname}?ranking=${shareCode}`;
   }, [shareCode]);
+
+  const rankingIsValid = ranking.length === DEFAULT_RANKING.length;
+
+  const takeMetrics = useMemo(
+    () => (consensus ? computeTakeMetrics(ranking, consensus) : null),
+    [consensus, ranking],
+  );
+
+  const submitRankingToCommunity = useCallback(async (currentRanking: string[]) => {
+    const response = await fetch("/api/ranking", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ranking: currentRanking }),
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    const payload = (await response.json()) as { consensus: ConsensusSnapshot };
+    setConsensus(payload.consensus);
+    lastSubmittedCode.current = encodeRanking(currentRanking);
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/consensus")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: ConsensusSnapshot | null) => {
+        if (payload) {
+          setConsensus(payload);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!rankingIsValid) {
+      return;
+    }
+
+    const rankingCode = encodeRanking(ranking);
+
+    if (rankingCode === lastSubmittedCode.current) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void submitRankingToCommunity(ranking);
+    }, 2000);
+
+    return () => window.clearTimeout(timeout);
+  }, [ranking, rankingIsValid, submitRankingToCommunity]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -221,8 +250,73 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
     }
   };
 
+  const getActiveCardNode = () => {
+    const node = imageVariant === "top5" ? top5CardRef.current : fullCardRef.current;
+    return node;
+  };
+
+  const runImageAction = async (action: "download" | "copy") => {
+    const node = getActiveCardNode();
+
+    if (!node || !rankingIsValid) {
+      setCopyMessage("Could not generate image. Try again after your board loads.");
+      return;
+    }
+
+    setIsGeneratingImage(true);
+
+    try {
+      if (encodeRanking(ranking) !== lastSubmittedCode.current) {
+        await submitRankingToCommunity(ranking);
+      }
+
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve());
+        });
+      });
+
+      if (action === "download") {
+        const filename =
+          imageVariant === "top5" ? "snapb-quarterback-top5.png" : "snapb-quarterback-full.png";
+        await downloadCardPng(node, filename);
+        setCopyMessage("Image downloaded.");
+      } else {
+        await copyCardPngToClipboard(node);
+        setCopyMessage("Image copied.");
+      }
+    } catch {
+      if (action === "copy") {
+        setCopyMessage("Could not copy image. Try download, or use Chrome.");
+      } else {
+        setCopyMessage("Could not download image. Please try again.");
+      }
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
   return (
     <main className={styles.page}>
+      <div className={styles.exportHost} aria-hidden="true">
+        <ShareCard
+          hostname={hostname}
+          ranking={ranking}
+          ref={top5CardRef}
+          submissionCount={consensus?.submissionCount ?? 0}
+          takeMetrics={takeMetrics}
+          variant="top5"
+        />
+        <ShareCard
+          hostname={hostname}
+          ranking={ranking}
+          ref={fullCardRef}
+          submissionCount={consensus?.submissionCount ?? 0}
+          takeMetrics={takeMetrics}
+          variant="full"
+        />
+      </div>
+
       <section className={styles.hero}>
         <div>
           <p className={styles.eyebrow}>NFL QB Tiers</p>
@@ -244,9 +338,13 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
             <span>Instantly updates as you reorder the board.</span>
           </article>
           <article className={styles.card}>
-            <span className={styles.cardLabel}>Saved format</span>
-            <strong>{shareCode}</strong>
-            <span>Keep the ranking code or full link to reopen the exact same board later.</span>
+            <span className={styles.cardLabel}>Take heat</span>
+            <strong>{takeMetrics ? `${takeMetrics.takeHeat}° ${getHeatLabel(takeMetrics.takeHeat)}` : "…"}</strong>
+            <span>
+              {takeMetrics
+                ? `${takeMetrics.fanMatchPercent}% fan match across ${consensus?.submissionCount.toLocaleString() ?? "0"} boards.`
+                : "Loading community consensus…"}
+            </span>
           </article>
         </div>
       </section>
@@ -274,6 +372,7 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
               return (
                 <li className={styles.rankingItem} key={quarterback.id}>
                   <div className={styles.rankNumber}>{index + 1}</div>
+                  <PlayerAvatar quarterback={quarterback} size="md" />
                   <div className={styles.playerBlock}>
                     <strong>{quarterback.player}</strong>
                     <span>
@@ -329,7 +428,7 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
             <div className={styles.panelHeader}>
               <div>
                 <h2>Share your board</h2>
-                <p>Send the full link or just the compact ranking code.</p>
+                <p>Send the full link, ranking code, or a shareable image for social posts.</p>
               </div>
               {copyMessage ? <span className={styles.copyMessage}>{copyMessage}</span> : null}
             </div>
@@ -340,6 +439,67 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
             <button className={styles.primaryButton} onClick={() => copyValue(shareUrl, "Link")} type="button">
               Copy share link
             </button>
+
+            {takeMetrics ? (
+              <div className={styles.takeHeatPanel}>
+                <div>
+                  <span className={styles.cardLabel}>Take heat</span>
+                  <strong className={styles.takeHeatValue}>
+                    {takeMetrics.takeHeat}° {getHeatLabel(takeMetrics.takeHeat)}
+                  </strong>
+                </div>
+                <p>
+                  {takeMetrics.fanMatchPercent}% match with fan boards
+                  {consensus ? ` · ${consensus.submissionCount.toLocaleString()} boards` : null}
+                </p>
+                {takeMetrics.hottestPick ? (
+                  <p className={styles.takeHeatCallout}>
+                    Spiciest: {takeMetrics.hottestPick.player} at #{takeMetrics.hottestPick.yourRank} (fans avg #
+                    {takeMetrics.hottestPick.fanAvgRank})
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <p className={styles.fieldLabel}>Share image</p>
+            <div className={styles.variantToggle} role="group" aria-label="Share image layout">
+              <button
+                aria-pressed={imageVariant === "top5"}
+                className={`${styles.variantButton} ${imageVariant === "top5" ? styles.variantButtonActive : ""}`}
+                onClick={() => setImageVariant("top5")}
+                type="button"
+              >
+                Top 5
+              </button>
+              <button
+                aria-pressed={imageVariant === "full"}
+                className={`${styles.variantButton} ${imageVariant === "full" ? styles.variantButtonActive : ""}`}
+                onClick={() => setImageVariant("full")}
+                type="button"
+              >
+                Full board
+              </button>
+            </div>
+            <div className={styles.buttonRow}>
+              <button
+                aria-label={`Download ${imageVariant === "top5" ? "Top 5" : "Full board"} image`}
+                className={styles.primaryButton}
+                disabled={!rankingIsValid || isGeneratingImage}
+                onClick={() => runImageAction("download")}
+                type="button"
+              >
+                {isGeneratingImage ? "Generating…" : "Download image"}
+              </button>
+              <button
+                aria-label={`Copy ${imageVariant === "top5" ? "Top 5" : "Full board"} image`}
+                className={styles.secondaryButton}
+                disabled={!rankingIsValid || isGeneratingImage}
+                onClick={() => runImageAction("copy")}
+                type="button"
+              >
+                Copy image
+              </button>
+            </div>
 
             <label className={styles.fieldLabel} htmlFor="share-code">
               Savable ranking code
