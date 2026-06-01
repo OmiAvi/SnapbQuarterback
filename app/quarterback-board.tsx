@@ -70,6 +70,20 @@ function getPlacementMap(ranking: string[]) {
   }, {});
 }
 
+function shuffle<T>(input: T[]): T[] {
+  const result = [...input];
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(Math.random() * (index + 1));
+    [result[index], result[swap]] = [result[swap], result[index]];
+  }
+  return result;
+}
+
+const BLIND_COUNT_OPTIONS = [10, 15, 32];
+
+type Mode = "classic" | "blind";
+type BlindStage = "setup" | "playing" | "done";
+
 export default function QuarterbackBoard({
   quarterbacks,
   initialRankingCode,
@@ -90,6 +104,13 @@ export default function QuarterbackBoard({
   const [comparisonRanking, setComparisonRanking] = useState<string[] | null>(null);
   const [comparisonError, setComparisonError] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
+
+  const [mode, setMode] = useState<Mode>("classic");
+  const [blindCount, setBlindCount] = useState(10);
+  const [blindStage, setBlindStage] = useState<BlindStage>("setup");
+  const [blindQueue, setBlindQueue] = useState<string[]>([]);
+  const [blindCurrent, setBlindCurrent] = useState<string | null>(null);
+  const [blindSlots, setBlindSlots] = useState<(string | null)[]>([]);
 
   const shareCode = useMemo(() => encodeRanking(ranking), [ranking]);
   const shareUrl = useMemo(() => {
@@ -168,6 +189,60 @@ export default function QuarterbackBoard({
     setComparisonError("");
   };
 
+  const placedCount = blindSlots.filter(Boolean).length;
+
+  const resetBlind = () => {
+    setBlindStage("setup");
+    setBlindQueue([]);
+    setBlindCurrent(null);
+    setBlindSlots([]);
+  };
+
+  const startBlindRound = (count: number) => {
+    const [first, ...rest] = shuffle(defaultRanking).slice(0, count);
+    setBlindSlots(Array(count).fill(null));
+    setBlindQueue(rest);
+    setBlindCurrent(first ?? null);
+    setBlindStage("playing");
+  };
+
+  const placeBlind = (slotIndex: number) => {
+    if (blindCurrent === null || blindSlots[slotIndex] !== null) {
+      return;
+    }
+
+    setBlindSlots((slots) => {
+      const next = [...slots];
+      next[slotIndex] = blindCurrent;
+      return next;
+    });
+
+    const [nextCurrent, ...rest] = blindQueue;
+    if (nextCurrent === undefined) {
+      setBlindCurrent(null);
+      setBlindQueue([]);
+      setBlindStage("done");
+    } else {
+      setBlindCurrent(nextCurrent);
+      setBlindQueue(rest);
+    }
+  };
+
+  const applyBlindToBoard = () => {
+    const placed = blindSlots.filter((id): id is string => Boolean(id));
+    const rest = ranking.filter((id) => !placed.includes(id));
+    setRanking([...placed, ...rest]);
+    setMode("classic");
+    resetBlind();
+  };
+
+  const selectMode = (nextMode: Mode) => {
+    setMode(nextMode);
+    if (nextMode === "classic") {
+      resetBlind();
+    }
+  };
+
   const loadComparison = () => {
     const decodedRanking = decodeRanking(comparisonInput, quarterbackMap);
 
@@ -225,72 +300,216 @@ export default function QuarterbackBoard({
           <div className={styles.panelHeader}>
             <div>
               <h2>Your ranking</h2>
-              <p>Use the controls to move quarterbacks up or down until the board matches your take.</p>
+              <p>
+                {mode === "classic"
+                  ? "Use the controls to move quarterbacks up or down until the board matches your take."
+                  : "Blind mode: place each quarterback the moment it appears — you can't see who's next, and every pick is final."}
+              </p>
             </div>
-            <button className={styles.secondaryButton} onClick={resetRanking} type="button">
-              Reset board
-            </button>
+            <div className={styles.modeToggle}>
+              <button
+                className={mode === "classic" ? styles.primaryButton : styles.secondaryButton}
+                onClick={() => selectMode("classic")}
+                type="button"
+              >
+                Classic
+              </button>
+              <button
+                className={mode === "blind" ? styles.primaryButton : styles.secondaryButton}
+                onClick={() => selectMode("blind")}
+                type="button"
+              >
+                Blind ranking
+              </button>
+            </div>
           </div>
 
-          <ol className={styles.rankingList}>
-            {ranking.map((id, index) => {
-              const quarterback = quarterbackMap.get(id);
+          {mode === "classic" ? (
+            <>
+              <div className={styles.buttonRow}>
+                <button className={styles.secondaryButton} onClick={resetRanking} type="button">
+                  Reset board
+                </button>
+              </div>
+              <ol className={styles.rankingList}>
+                {ranking.map((id, index) => {
+                  const quarterback = quarterbackMap.get(id);
 
-              if (!quarterback) {
-                return null;
-              }
+                  if (!quarterback) {
+                    return null;
+                  }
 
-              return (
-                <li className={styles.rankingItem} key={quarterback.id}>
-                  <div className={styles.rankNumber}>{index + 1}</div>
-                  <div className={styles.playerBlock}>
-                    <strong>{quarterback.player}</strong>
-                    <span>
-                      {quarterback.teamName} · {quarterback.conference}
-                    </span>
-                  </div>
-                  <div className={styles.controls}>
-                    <button
-                      aria-label={`Move ${quarterback.player} to the top`}
-                      className={styles.controlButton}
-                      disabled={index === 0}
-                      onClick={() => updateRanking(index, 0)}
-                      type="button"
+                  return (
+                    <li className={styles.rankingItem} key={quarterback.id}>
+                      <div className={styles.rankNumber}>{index + 1}</div>
+                      <div className={styles.playerBlock}>
+                        <strong>{quarterback.player}</strong>
+                        <span>
+                          {quarterback.teamName} · {quarterback.conference}
+                        </span>
+                      </div>
+                      <div className={styles.controls}>
+                        <button
+                          aria-label={`Move ${quarterback.player} to the top`}
+                          className={styles.controlButton}
+                          disabled={index === 0}
+                          onClick={() => updateRanking(index, 0)}
+                          type="button"
+                        >
+                          Top
+                        </button>
+                        <button
+                          aria-label={`Move ${quarterback.player} up`}
+                          className={styles.controlButton}
+                          disabled={index === 0}
+                          onClick={() => updateRanking(index, index - 1)}
+                          type="button"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          aria-label={`Move ${quarterback.player} down`}
+                          className={styles.controlButton}
+                          disabled={index === ranking.length - 1}
+                          onClick={() => updateRanking(index, index + 1)}
+                          type="button"
+                        >
+                          ↓
+                        </button>
+                        <button
+                          aria-label={`Move ${quarterback.player} to the bottom`}
+                          className={styles.controlButton}
+                          disabled={index === ranking.length - 1}
+                          onClick={() => updateRanking(index, ranking.length - 1)}
+                          type="button"
+                        >
+                          Bottom
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </>
+          ) : null}
+
+          {mode === "blind" && blindStage === "setup" ? (
+            <div className={styles.blindSetup}>
+              <p>
+                Quarterbacks appear one at a time in random order. Drop each into any open slot to
+                set its rank — once placed, it&apos;s locked. Pick how many to rank:
+              </p>
+              <span className={styles.fieldLabel}>Round length</span>
+              <div className={styles.buttonRow}>
+                {BLIND_COUNT_OPTIONS.map((count) => (
+                  <button
+                    className={blindCount === count ? styles.primaryButton : styles.secondaryButton}
+                    key={count}
+                    onClick={() => setBlindCount(count)}
+                    type="button"
+                  >
+                    {count === 32 ? "All 32" : count}
+                  </button>
+                ))}
+              </div>
+              <button
+                className={styles.primaryButton}
+                onClick={() => startBlindRound(blindCount)}
+                type="button"
+              >
+                Start blind round
+              </button>
+            </div>
+          ) : null}
+
+          {mode === "blind" && blindStage === "playing" && blindCurrent ? (
+            <div className={styles.blindBoard}>
+              <div className={styles.currentCard}>
+                <span className={styles.cardLabel}>
+                  Place {placedCount + 1} of {blindSlots.length}
+                </span>
+                <strong>{quarterbackMap.get(blindCurrent)?.player}</strong>
+                <span>
+                  {quarterbackMap.get(blindCurrent)?.teamName} ·{" "}
+                  {quarterbackMap.get(blindCurrent)?.conference}
+                </span>
+                <span className={styles.blindHint}>
+                  {blindQueue.length} still to come — choose a slot. No take-backs.
+                </span>
+              </div>
+              <ol className={styles.slotList}>
+                {blindSlots.map((id, index) => {
+                  const placedQb = id ? quarterbackMap.get(id) : null;
+
+                  return (
+                    <li
+                      className={`${styles.slot} ${placedQb ? styles.slotFilled : styles.slotEmpty}`}
+                      key={index}
                     >
-                      Top
-                    </button>
-                    <button
-                      aria-label={`Move ${quarterback.player} up`}
-                      className={styles.controlButton}
-                      disabled={index === 0}
-                      onClick={() => updateRanking(index, index - 1)}
-                      type="button"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      aria-label={`Move ${quarterback.player} down`}
-                      className={styles.controlButton}
-                      disabled={index === ranking.length - 1}
-                      onClick={() => updateRanking(index, index + 1)}
-                      type="button"
-                    >
-                      ↓
-                    </button>
-                    <button
-                      aria-label={`Move ${quarterback.player} to the bottom`}
-                      className={styles.controlButton}
-                      disabled={index === ranking.length - 1}
-                      onClick={() => updateRanking(index, ranking.length - 1)}
-                      type="button"
-                    >
-                      Bottom
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
+                      <div className={styles.rankNumber}>{index + 1}</div>
+                      {placedQb ? (
+                        <div className={styles.playerBlock}>
+                          <strong>{placedQb.player}</strong>
+                          <span>{placedQb.teamName}</span>
+                        </div>
+                      ) : (
+                        <button
+                          className={styles.placeButton}
+                          onClick={() => placeBlind(index)}
+                          type="button"
+                        >
+                          Place here
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          ) : null}
+
+          {mode === "blind" && blindStage === "done" ? (
+            <div className={styles.blindBoard}>
+              <div className={styles.currentCard}>
+                <span className={styles.cardLabel}>Round complete</span>
+                <strong>Your blind top {blindSlots.length}</strong>
+                <span>Locked in. Apply it to your board to share or compare — or run it back.</span>
+              </div>
+              <ol className={styles.rankingList}>
+                {blindSlots.map((id, index) => {
+                  const placedQb = id ? quarterbackMap.get(id) : null;
+
+                  if (!placedQb) {
+                    return null;
+                  }
+
+                  return (
+                    <li className={styles.rankingItem} key={placedQb.id}>
+                      <div className={styles.rankNumber}>{index + 1}</div>
+                      <div className={styles.playerBlock}>
+                        <strong>{placedQb.player}</strong>
+                        <span>
+                          {placedQb.teamName} · {placedQb.conference}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+              <div className={styles.buttonRow}>
+                <button className={styles.primaryButton} onClick={applyBlindToBoard} type="button">
+                  Apply to my board
+                </button>
+                <button
+                  className={styles.secondaryButton}
+                  onClick={() => setBlindStage("setup")}
+                  type="button"
+                >
+                  Play again
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className={styles.sidebar}>
