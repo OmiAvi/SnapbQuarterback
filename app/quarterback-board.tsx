@@ -3,52 +3,7 @@
 import html2canvas from "html2canvas";
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./page.module.css";
-
-type Quarterback = {
-  id: string;
-  team: string;
-  teamName: string;
-  player: string;
-  conference: "AFC" | "NFC";
-};
-
-const QUARTERBACKS: Quarterback[] = [
-  { id: "ari", team: "ARI", teamName: "Arizona Cardinals", player: "Kyler Murray", conference: "NFC" },
-  { id: "atl", team: "ATL", teamName: "Atlanta Falcons", player: "Michael Penix Jr.", conference: "NFC" },
-  { id: "bal", team: "BAL", teamName: "Baltimore Ravens", player: "Lamar Jackson", conference: "AFC" },
-  { id: "buf", team: "BUF", teamName: "Buffalo Bills", player: "Josh Allen", conference: "AFC" },
-  { id: "car", team: "CAR", teamName: "Carolina Panthers", player: "Bryce Young", conference: "NFC" },
-  { id: "chi", team: "CHI", teamName: "Chicago Bears", player: "Caleb Williams", conference: "NFC" },
-  { id: "cin", team: "CIN", teamName: "Cincinnati Bengals", player: "Joe Burrow", conference: "AFC" },
-  { id: "cle", team: "CLE", teamName: "Cleveland Browns", player: "Joe Flacco", conference: "AFC" },
-  { id: "dal", team: "DAL", teamName: "Dallas Cowboys", player: "Dak Prescott", conference: "NFC" },
-  { id: "den", team: "DEN", teamName: "Denver Broncos", player: "Bo Nix", conference: "AFC" },
-  { id: "det", team: "DET", teamName: "Detroit Lions", player: "Jared Goff", conference: "NFC" },
-  { id: "gb", team: "GB", teamName: "Green Bay Packers", player: "Jordan Love", conference: "NFC" },
-  { id: "hou", team: "HOU", teamName: "Houston Texans", player: "C.J. Stroud", conference: "AFC" },
-  { id: "ind", team: "IND", teamName: "Indianapolis Colts", player: "Anthony Richardson", conference: "AFC" },
-  { id: "jax", team: "JAX", teamName: "Jacksonville Jaguars", player: "Trevor Lawrence", conference: "AFC" },
-  { id: "kc", team: "KC", teamName: "Kansas City Chiefs", player: "Patrick Mahomes", conference: "AFC" },
-  { id: "lv", team: "LV", teamName: "Las Vegas Raiders", player: "Geno Smith", conference: "AFC" },
-  { id: "lac", team: "LAC", teamName: "Los Angeles Chargers", player: "Justin Herbert", conference: "AFC" },
-  { id: "lar", team: "LAR", teamName: "Los Angeles Rams", player: "Matthew Stafford", conference: "NFC" },
-  { id: "mia", team: "MIA", teamName: "Miami Dolphins", player: "Tua Tagovailoa", conference: "AFC" },
-  { id: "min", team: "MIN", teamName: "Minnesota Vikings", player: "J.J. McCarthy", conference: "NFC" },
-  { id: "ne", team: "NE", teamName: "New England Patriots", player: "Drake Maye", conference: "AFC" },
-  { id: "no", team: "NO", teamName: "New Orleans Saints", player: "Tyler Shough", conference: "NFC" },
-  { id: "nyg", team: "NYG", teamName: "New York Giants", player: "Russell Wilson", conference: "NFC" },
-  { id: "nyj", team: "NYJ", teamName: "New York Jets", player: "Justin Fields", conference: "AFC" },
-  { id: "phi", team: "PHI", teamName: "Philadelphia Eagles", player: "Jalen Hurts", conference: "NFC" },
-  { id: "pit", team: "PIT", teamName: "Pittsburgh Steelers", player: "Aaron Rodgers", conference: "AFC" },
-  { id: "sf", team: "SF", teamName: "San Francisco 49ers", player: "Brock Purdy", conference: "NFC" },
-  { id: "sea", team: "SEA", teamName: "Seattle Seahawks", player: "Sam Darnold", conference: "NFC" },
-  { id: "tb", team: "TB", teamName: "Tampa Bay Buccaneers", player: "Baker Mayfield", conference: "NFC" },
-  { id: "ten", team: "TEN", teamName: "Tennessee Titans", player: "Cam Ward", conference: "AFC" },
-  { id: "wsh", team: "WSH", teamName: "Washington Commanders", player: "Jayden Daniels", conference: "NFC" },
-];
-
-const DEFAULT_RANKING = QUARTERBACKS.map(({ id }) => id);
-const QUARTERBACK_MAP = new Map(QUARTERBACKS.map((quarterback) => [quarterback.id, quarterback]));
+import type { Quarterback } from "./lib/quarterbacks";
 
 function moveRankingItem(ranking: string[], from: number, to: number) {
   if (from === to || to < 0 || to >= ranking.length) {
@@ -88,7 +43,7 @@ function extractRankingCode(value: string) {
   return trimmed;
 }
 
-function decodeRanking(value: string) {
+function decodeRanking(value: string, quarterbackMap: Map<string, Quarterback>) {
   const rankingCode = extractRankingCode(value);
 
   if (!rankingCode) {
@@ -98,11 +53,11 @@ function decodeRanking(value: string) {
   const ranking = rankingCode.split(".").filter(Boolean);
   const rankingSet = new Set(ranking);
 
-  if (ranking.length !== DEFAULT_RANKING.length || rankingSet.size !== DEFAULT_RANKING.length) {
+  if (ranking.length !== quarterbackMap.size || rankingSet.size !== quarterbackMap.size) {
     return null;
   }
 
-  if (!ranking.every((id) => QUARTERBACK_MAP.has(id))) {
+  if (!ranking.every((id) => quarterbackMap.has(id))) {
     return null;
   }
 
@@ -132,8 +87,22 @@ const BLIND_COUNT_OPTIONS = [10, 15, 32] as const;
 type Mode = "classic" | "blind";
 type BlindStage = "setup" | "playing" | "done";
 
-export default function QuarterbackBoard({ initialRankingCode }: { initialRankingCode: string }) {
-  const [ranking, setRanking] = useState(() => decodeRanking(initialRankingCode) ?? DEFAULT_RANKING);
+export default function QuarterbackBoard({
+  quarterbacks,
+  initialRankingCode,
+}: {
+  quarterbacks: Quarterback[];
+  initialRankingCode: string;
+}) {
+  const defaultRanking = useMemo(() => quarterbacks.map(({ id }) => id), [quarterbacks]);
+  const quarterbackMap = useMemo(
+    () => new Map(quarterbacks.map((quarterback) => [quarterback.id, quarterback])),
+    [quarterbacks],
+  );
+
+  const [ranking, setRanking] = useState(
+    () => decodeRanking(initialRankingCode, quarterbackMap) ?? defaultRanking,
+  );
   const [mode, setMode] = useState<Mode>("classic");
   const [blindCount, setBlindCount] = useState<(typeof BLIND_COUNT_OPTIONS)[number]>(10);
   const [blindStage, setBlindStage] = useState<BlindStage>("setup");
@@ -143,6 +112,9 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
   const [shareViewOpen, setShareViewOpen] = useState(false);
   const [shareMessage, setShareMessage] = useState("");
   const sharePreviewRef = useRef<HTMLDivElement | null>(null);
+  const [comparisonInput, setComparisonInput] = useState("");
+  const [comparisonRanking, setComparisonRanking] = useState<string[] | null>(null);
+  const [comparisonError, setComparisonError] = useState("");
 
   const shareCode = useMemo(() => encodeRanking(ranking), [ranking]);
   const shareUrl = useMemo(() => {
@@ -170,13 +142,13 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
     return () => window.clearTimeout(timeout);
   }, [shareMessage]);
 
-  const topFive = ranking.slice(0, 5).map((id) => QUARTERBACK_MAP.get(id)?.player ?? id);
+  const topFive = ranking.slice(0, 5).map((id) => quarterbackMap.get(id)?.player ?? id);
   const placedCount = blindSlots.filter(Boolean).length;
   const blindResultRanking = useMemo(
     () => blindSlots.filter((id): id is string => Boolean(id)),
     [blindSlots],
   );
-  const blindTopThree = blindResultRanking.slice(0, 3).map((id) => QUARTERBACK_MAP.get(id)?.player ?? id);
+  const blindTopThree = blindResultRanking.slice(0, 3).map((id) => quarterbackMap.get(id)?.player ?? id);
   const isSharingBlindResult = mode === "blind" && blindStage === "done" && blindResultRanking.length > 0;
   const exportRanking = isSharingBlindResult ? blindResultRanking : ranking;
   const exportTopPlayers = isSharingBlindResult ? blindTopThree : topFive.slice(0, 3);
@@ -189,12 +161,66 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
     );
   }, [exportRanking]);
 
+  const comparisonRows = useMemo(() => {
+    if (!comparisonRanking) {
+      return [];
+    }
+
+    const myPlacements = getPlacementMap(ranking);
+    const theirPlacements = getPlacementMap(comparisonRanking);
+
+    return ranking
+      .map((id) => {
+        const quarterback = quarterbackMap.get(id);
+
+        if (!quarterback) {
+          return null;
+        }
+
+        const mine = myPlacements[id];
+        const theirs = theirPlacements[id];
+
+        return {
+          quarterback,
+          mine,
+          theirs,
+          delta: Math.abs(mine - theirs),
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => Boolean(row))
+      .sort((left, right) => right.delta - left.delta || left.mine - right.mine);
+  }, [comparisonRanking, ranking, quarterbackMap]);
+
+  const averageDelta = comparisonRows.length
+    ? comparisonRows.reduce((total, row) => total + row.delta, 0) / comparisonRows.length
+    : 0;
+  const agreementScore = comparisonRows.length
+    ? Math.max(0, Math.round((1 - averageDelta / (defaultRanking.length - 1)) * 100))
+    : 0;
+  const biggestGap = comparisonRows[0];
+
   const updateRanking = (from: number, to: number) => {
     setRanking((currentRanking) => moveRankingItem(currentRanking, from, to));
   };
 
   const resetRanking = () => {
-    setRanking(DEFAULT_RANKING);
+    setRanking(defaultRanking);
+    setComparisonRanking(null);
+    setComparisonInput("");
+    setComparisonError("");
+  };
+
+  const loadComparison = () => {
+    const decodedRanking = decodeRanking(comparisonInput, quarterbackMap);
+
+    if (!decodedRanking) {
+      setComparisonRanking(null);
+      setComparisonError("Paste a SnapbQuarterback share link or ranking code to compare boards.");
+      return;
+    }
+
+    setComparisonRanking(decodedRanking);
+    setComparisonError("");
   };
 
   const resetBlind = () => {
@@ -205,7 +231,7 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
   };
 
   const startBlindRound = (count: (typeof BLIND_COUNT_OPTIONS)[number]) => {
-    const [first, ...rest] = shuffle(DEFAULT_RANKING).slice(0, count);
+    const [first, ...rest] = shuffle(defaultRanking).slice(0, count);
 
     setBlindSlots(Array(count).fill(null));
     setBlindQueue(rest);
@@ -329,14 +355,86 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
         <div className={styles.summaryGrid}>
           <article className={styles.card}>
             <span className={styles.cardLabel}>QB1</span>
-            <strong>{QUARTERBACK_MAP.get(ranking[0])?.player}</strong>
-            <span>{QUARTERBACK_MAP.get(ranking[0])?.teamName}</span>
+            <strong>{quarterbackMap.get(ranking[0])?.player}</strong>
+            <span>{quarterbackMap.get(ranking[0])?.teamName}</span>
           </article>
           <article className={styles.card}>
             <span className={styles.cardLabel}>Top five</span>
             <strong>{topFive.join(", ")}</strong>
             <span>Instantly updates as you reorder the board.</span>
           </article>
+        </div>
+
+        <div className={styles.sidebar}>
+          <section className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div>
+                <h2>Compare with someone else</h2>
+                <p>Paste another fan&apos;s link or ranking code to spot the biggest disagreements.</p>
+              </div>
+            </div>
+            <label className={styles.fieldLabel} htmlFor="comparison-input">
+              Opponent link or code
+            </label>
+            <textarea
+              className={styles.textarea}
+              id="comparison-input"
+              onChange={(event) => setComparisonInput(event.target.value)}
+              placeholder="https://.../SnapbQuarterback?ranking=..."
+              value={comparisonInput}
+            />
+            <div className={styles.buttonRow}>
+              <button className={styles.primaryButton} onClick={loadComparison} type="button">
+                Compare boards
+              </button>
+              <button
+                className={styles.secondaryButton}
+                onClick={() => {
+                  setComparisonInput("");
+                  setComparisonRanking(null);
+                  setComparisonError("");
+                }}
+                type="button"
+              >
+                Clear
+              </button>
+            </div>
+            {comparisonError ? <p className={styles.error}>{comparisonError}</p> : null}
+
+            {comparisonRanking ? (
+              <div className={styles.comparisonPanel}>
+                <div className={styles.comparisonStats}>
+                  <article className={styles.card}>
+                    <span className={styles.cardLabel}>Agreement score</span>
+                    <strong>{agreementScore}%</strong>
+                    <span>Based on average rank distance across all 32 quarterbacks.</span>
+                  </article>
+                  <article className={styles.card}>
+                    <span className={styles.cardLabel}>Biggest disagreement</span>
+                    <strong>{biggestGap?.quarterback.player}</strong>
+                    <span>
+                      You have him {biggestGap?.mine}, they have him {biggestGap?.theirs}.
+                    </span>
+                  </article>
+                </div>
+                <div className={styles.comparisonTable}>
+                  {comparisonRows.slice(0, 8).map((row) => (
+                    <div className={styles.comparisonRow} key={row.quarterback.id}>
+                      <div>
+                        <strong>{row.quarterback.player}</strong>
+                        <span>{row.quarterback.team}</span>
+                      </div>
+                      <div className={styles.comparisonRanks}>
+                        <span>You: {row.mine}</span>
+                        <span>Them: {row.theirs}</span>
+                        <span>Δ {row.delta}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </section>
         </div>
       </section>
 
@@ -382,7 +480,7 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
           {mode === "classic" ? (
             <ol className={styles.rankingList}>
               {ranking.map((id, index) => {
-                const quarterback = QUARTERBACK_MAP.get(id);
+              const quarterback = quarterbackMap.get(id);
 
                 if (!quarterback) {
                   return null;
@@ -472,9 +570,9 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
                 <span className={styles.cardLabel}>
                   Place {placedCount + 1} of {blindSlots.length}
                 </span>
-                <strong>{QUARTERBACK_MAP.get(blindCurrent)?.player}</strong>
+                <strong>{quarterbackMap.get(blindCurrent)?.player}</strong>
                 <span>
-                  {QUARTERBACK_MAP.get(blindCurrent)?.teamName} · {QUARTERBACK_MAP.get(blindCurrent)?.conference}
+                  {quarterbackMap.get(blindCurrent)?.teamName} · {quarterbackMap.get(blindCurrent)?.conference}
                 </span>
                 <span className={styles.blindHint}>
                   {blindQueue.length} still to come. Choose a slot now. No take-backs.
@@ -482,7 +580,7 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
               </div>
               <ol className={styles.slotList}>
                 {blindSlots.map((id, index) => {
-                  const placedQuarterback = id ? QUARTERBACK_MAP.get(id) : null;
+                  const placedQuarterback = id ? quarterbackMap.get(id) : null;
 
                   return (
                     <li
@@ -516,7 +614,7 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
               </div>
               <ol className={styles.rankingList}>
                 {blindSlots.map((id, index) => {
-                  const quarterback = id ? QUARTERBACK_MAP.get(id) : null;
+                  const quarterback = id ? quarterbackMap.get(id) : null;
 
                   if (!quarterback) {
                     return null;
@@ -596,8 +694,8 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
                 <div className={styles.shareHighlights}>
                   <article className={styles.shareHighlightCard}>
                     <span>{isSharingBlindResult ? "Blind QB1" : "QB1"}</span>
-                    <strong>{QUARTERBACK_MAP.get(exportRanking[0])?.player}</strong>
-                    <p>{QUARTERBACK_MAP.get(exportRanking[0])?.teamName}</p>
+                    <strong>{quarterbackMap.get(exportRanking[0])?.player}</strong>
+                    <p>{quarterbackMap.get(exportRanking[0])?.teamName}</p>
                   </article>
                   <article className={styles.shareHighlightCard}>
                     <span>Top 3</span>
@@ -615,7 +713,7 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
                   {exportColumns.map((column, columnIndex) => (
                     <div className={styles.shareColumn} key={`share-column-${columnIndex}`}>
                       {column.map((id) => {
-                        const quarterback = QUARTERBACK_MAP.get(id);
+                        const quarterback = quarterbackMap.get(id);
 
                         if (!quarterback) {
                           return null;
