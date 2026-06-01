@@ -304,33 +304,6 @@
   color: #eff6ff;
 }
 
-.takeHeatPanel {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 18px;
-  padding: 16px 18px;
-  border: 1px solid rgba(251, 146, 60, 0.35);
-  border-radius: 18px;
-  background: linear-gradient(135deg, rgba(251, 146, 60, 0.12), rgba(15, 23, 42, 0.75));
-}
-
-.takeHeatValue {
-  display: block;
-  margin-top: 4px;
-  font-size: 1.35rem;
-  color: #fdba74;
-}
-
-.takeHeatPanel p {
-  color: #cbd5e1;
-  line-height: 1.5;
-}
-
-.takeHeatCallout {
-  color: #fde68a !important;
-  font-weight: 600;
-}
-
 @media (max-width: 980px) {
   .content {
     grid-template-columns: 1fr;

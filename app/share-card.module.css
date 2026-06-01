@@ -29,57 +29,9 @@
   margin-bottom: 28px;
 }
 
-.heatPanel {
-  display: flex;
-  align-items: center;
-  gap: 28px;
-  margin-bottom: 28px;
-  padding: 28px 32px;
-  border: 2px solid rgba(251, 146, 60, 0.35);
-  border-radius: 28px;
-  background: linear-gradient(135deg, rgba(251, 146, 60, 0.14), rgba(15, 23, 42, 0.8));
-}
-
-.heatScoreWrap {
-  display: grid;
-  gap: 4px;
-  min-width: 160px;
-}
-
-.heatScore {
-  font-size: 72px;
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: -0.04em;
-  color: #fdba74;
-}
-
-.heatLabel {
-  font-size: 28px;
-  font-weight: 700;
-  color: #fed7aa;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.heatMeta {
-  display: grid;
-  gap: 8px;
-}
-
-.heatMeta strong {
-  font-size: 34px;
-}
-
-.heatMeta span {
-  color: #cbd5e1;
-  font-size: 26px;
-  line-height: 1.35;
-}
-
-.hotCallout {
-  color: #fde68a !important;
-  font-weight: 600;
+.shareHeat {
+  margin-bottom: 24px;
+  width: 100%;
 }
 
 .eyebrow {

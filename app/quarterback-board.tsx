@@ -1,15 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import {
-  computeTakeMetrics,
-  getHeatLabel,
-  type ConsensusSnapshot,
-} from "../lib/consensus";
+import { computeTakeMetrics, type ConsensusSnapshot } from "../lib/consensus";
+import { getHeatTheme } from "../lib/heat-theme";
 import { DEFAULT_RANKING, QUARTERBACK_MAP } from "./quarterbacks";
 import PlayerAvatar from "./player-avatar";
 import styles from "./page.module.css";
 import ShareCard, { type ShareCardVariant } from "./share-card";
+import TakeHeatCard from "./take-heat-card";
 import { copyCardPngToClipboard, downloadCardPng } from "./share-image";
 
 function moveRankingItem(ranking: string[], from: number, to: number) {
@@ -338,11 +336,19 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
             <span>Instantly updates as you reorder the board.</span>
           </article>
           <article className={styles.card}>
-            <span className={styles.cardLabel}>Take heat</span>
-            <strong>{takeMetrics ? `${takeMetrics.takeHeat}° ${getHeatLabel(takeMetrics.takeHeat)}` : "…"}</strong>
+            <span className={styles.cardLabel}>Your take</span>
+            <strong
+              style={
+                takeMetrics ? { color: getHeatTheme(takeMetrics.takeHeat).accent } : undefined
+              }
+            >
+              {takeMetrics
+                ? `${takeMetrics.takeHeat} heat · ${getHeatTheme(takeMetrics.takeHeat).label}`
+                : "…"}
+            </strong>
             <span>
               {takeMetrics
-                ? `${takeMetrics.fanMatchPercent}% fan match across ${consensus?.submissionCount.toLocaleString() ?? "0"} boards.`
+                ? `${takeMetrics.fanMatchPercent}% match with ${consensus?.submissionCount.toLocaleString() ?? "0"} fan boards.`
                 : "Loading community consensus…"}
             </span>
           </article>
@@ -440,25 +446,12 @@ export default function QuarterbackBoard({ initialRankingCode }: { initialRankin
               Copy share link
             </button>
 
-            {takeMetrics ? (
-              <div className={styles.takeHeatPanel}>
-                <div>
-                  <span className={styles.cardLabel}>Take heat</span>
-                  <strong className={styles.takeHeatValue}>
-                    {takeMetrics.takeHeat}° {getHeatLabel(takeMetrics.takeHeat)}
-                  </strong>
-                </div>
-                <p>
-                  {takeMetrics.fanMatchPercent}% match with fan boards
-                  {consensus ? ` · ${consensus.submissionCount.toLocaleString()} boards` : null}
-                </p>
-                {takeMetrics.hottestPick ? (
-                  <p className={styles.takeHeatCallout}>
-                    Spiciest: {takeMetrics.hottestPick.player} at #{takeMetrics.hottestPick.yourRank} (fans avg #
-                    {takeMetrics.hottestPick.fanAvgRank})
-                  </p>
-                ) : null}
-              </div>
+            {takeMetrics && consensus ? (
+              <TakeHeatCard
+                submissionCount={consensus.submissionCount}
+                takeMetrics={takeMetrics}
+                variant="sidebar"
+              />
             ) : null}
 
             <p className={styles.fieldLabel}>Share image</p>

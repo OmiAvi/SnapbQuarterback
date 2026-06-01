@@ -1,0 +1,233 @@
+.card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px 18px;
+  margin-bottom: 18px;
+  padding: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.export {
+  gap: 24px 32px;
+  margin-bottom: 0;
+  width: 100%;
+  padding: 28px 32px;
+  border-radius: 28px;
+}
+
+.meterWrap {
+  grid-row: span 2;
+  align-self: center;
+}
+
+.meter {
+  --heat: 50;
+  --accent: #60a5fa;
+  --track: rgba(148, 163, 184, 0.2);
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--accent) 0deg,
+    var(--accent) calc(var(--heat) * 3.6deg),
+    var(--track) calc(var(--heat) * 3.6deg),
+    var(--track) 360deg
+  );
+}
+
+.export .meter {
+  width: 132px;
+  height: 132px;
+}
+
+.meterInner {
+  display: grid;
+  place-items: center;
+  width: calc(100% - 14px);
+  height: calc(100% - 14px);
+  border-radius: 50%;
+  background: #0f172a;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.12);
+}
+
+.export .meterInner {
+  width: calc(100% - 20px);
+  height: calc(100% - 20px);
+}
+
+.meterValue {
+  font-size: 1.65rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.export .meterValue {
+  font-size: 2.75rem;
+}
+
+.meterUnit {
+  margin-top: 2px;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.export .meterUnit {
+  font-size: 1rem;
+}
+
+.copy {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.kicker {
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.export .kicker {
+  font-size: 1.35rem;
+}
+
+.headline {
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.export .headline {
+  font-size: 2.1rem;
+}
+
+.headline em {
+  font-style: normal;
+  font-weight: 800;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  color: #cbd5e1;
+  font-size: 0.88rem;
+}
+
+.export .stats {
+  font-size: 1.45rem;
+}
+
+.statDot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.5);
+}
+
+.matchBar {
+  position: relative;
+  flex: 1;
+  min-width: 120px;
+  max-width: 200px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.18);
+  overflow: hidden;
+}
+
+.export .matchBar {
+  min-width: 220px;
+  max-width: 320px;
+  height: 10px;
+}
+
+.matchFill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+.spiciest {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.export .spiciest {
+  gap: 18px;
+  padding: 20px 22px;
+  border-radius: 22px;
+}
+
+.spiciestCopy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.spiciestLabel {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.export .spiciestLabel {
+  font-size: 1.2rem;
+}
+
+.spiciestName {
+  font-size: 0.95rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.export .spiciestName {
+  font-size: 1.65rem;
+}
+
+.spiciestRanks {
+  color: #cbd5e1;
+  font-size: 0.82rem;
+}
+
+.export .spiciestRanks {
+  font-size: 1.35rem;
+}
+
+.spiciestRanks strong {
+  color: #f8fafc;
+  font-weight: 700;
+}
+
+.rankGap {
+  margin-left: auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.export .rankGap {
+  padding: 10px 16px;
+  font-size: 1.2rem;
+}

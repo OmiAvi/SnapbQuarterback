@@ -2,8 +2,8 @@
 
 import { forwardRef } from "react";
 import type { TakeMetrics } from "../lib/consensus";
-import { getHeatLabel } from "../lib/consensus";
 import PlayerAvatar from "./player-avatar";
+import TakeHeatCard from "./take-heat-card";
 import { QUARTERBACK_MAP, TEAM_COLORS, type Quarterback } from "./quarterbacks";
 import styles from "./share-card.module.css";
 
@@ -27,28 +27,13 @@ const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function ShareCard(
 ) {
   const qb1 = getQuarterback(ranking[0] ?? "");
   const qb1Accent = qb1 ? (TEAM_COLORS[qb1.team] ?? "#2563eb") : "#2563eb";
-  const heatLabel = takeMetrics ? getHeatLabel(takeMetrics.takeHeat) : null;
 
-  const heatPanel = takeMetrics ? (
-    <div className={styles.heatPanel}>
-      <div className={styles.heatScoreWrap}>
-        <span className={styles.heatScore}>{takeMetrics.takeHeat}°</span>
-        <span className={styles.heatLabel}>{heatLabel} take</span>
+  const heatPanel =
+    takeMetrics ? (
+      <div className={styles.shareHeat}>
+        <TakeHeatCard submissionCount={submissionCount} takeMetrics={takeMetrics} variant="export" />
       </div>
-      <div className={styles.heatMeta}>
-        <strong>{takeMetrics.fanMatchPercent}% fan match</strong>
-        <span>
-          vs {submissionCount.toLocaleString()} community boards
-        </span>
-        {takeMetrics.hottestPick ? (
-          <span className={styles.hotCallout}>
-            Spiciest: {takeMetrics.hottestPick.player} #{takeMetrics.hottestPick.yourRank} (fans avg #
-            {takeMetrics.hottestPick.fanAvgRank})
-          </span>
-        ) : null}
-      </div>
-    </div>
-  ) : null;
+    ) : null;
 
   if (variant === "top5") {
     const topFive = ranking.slice(0, 5);
