@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { DEFAULT_RANKING, QUARTERBACK_MAP } from "../../quarterbacks";
+import { QUARTERBACKS } from "../../lib/quarterbacks";
+
+const DEFAULT_RANKING = QUARTERBACKS.map(({ id }) => id);
+const QUARTERBACK_MAP = new Map(QUARTERBACKS.map((quarterback) => [quarterback.id, quarterback]));
 import { getConsensusSnapshot, recordRanking } from "../../../lib/consensus-store";
 
 function isValidRanking(ranking: unknown): ranking is string[] {

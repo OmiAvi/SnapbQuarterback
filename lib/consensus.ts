@@ -1,4 +1,7 @@
-import { DEFAULT_RANKING, QUARTERBACK_MAP } from "../app/quarterbacks";
+import { QUARTERBACKS } from "../app/lib/quarterbacks";
+
+const DEFAULT_RANKING = QUARTERBACKS.map(({ id }) => id);
+const QUARTERBACK_MAP = new Map(QUARTERBACKS.map((quarterback) => [quarterback.id, quarterback]));
 
 export type ConsensusSnapshot = {
   placements: Record<string, number>;

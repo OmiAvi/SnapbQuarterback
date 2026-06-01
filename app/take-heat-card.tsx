@@ -3,24 +3,26 @@
 import type { CSSProperties } from "react";
 import type { TakeMetrics } from "../lib/consensus";
 import { getHeatTheme } from "../lib/heat-theme";
-import { QUARTERBACK_MAP } from "./quarterbacks";
+import type { Quarterback } from "./lib/quarterbacks";
 import PlayerAvatar from "./player-avatar";
 import styles from "./take-heat-card.module.css";
 
 type TakeHeatCardProps = {
   takeMetrics: TakeMetrics;
   submissionCount: number;
+  quarterbackMap: Map<string, Quarterback>;
   variant?: "sidebar" | "export";
 };
 
 export default function TakeHeatCard({
   takeMetrics,
   submissionCount,
+  quarterbackMap,
   variant = "sidebar",
 }: TakeHeatCardProps) {
   const theme = getHeatTheme(takeMetrics.takeHeat);
   const hottestQuarterback = takeMetrics.hottestPick
-    ? QUARTERBACK_MAP.get(takeMetrics.hottestPick.id)
+    ? quarterbackMap.get(takeMetrics.hottestPick.id)
     : undefined;
   const rankGap = takeMetrics.hottestPick
     ? Math.round(Math.abs(takeMetrics.hottestPick.yourRank - takeMetrics.hottestPick.fanAvgRank))

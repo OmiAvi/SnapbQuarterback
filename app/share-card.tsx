@@ -4,34 +4,38 @@ import { forwardRef } from "react";
 import type { TakeMetrics } from "../lib/consensus";
 import PlayerAvatar from "./player-avatar";
 import TakeHeatCard from "./take-heat-card";
-import { QUARTERBACK_MAP, TEAM_COLORS, type Quarterback } from "./quarterbacks";
+import type { Quarterback } from "./lib/quarterbacks";
+import { TEAM_COLORS } from "../lib/team-colors";
 import styles from "./share-card.module.css";
 
 export type ShareCardVariant = "top5" | "full";
 
 type ShareCardProps = {
   ranking: string[];
+  quarterbackMap: Map<string, Quarterback>;
   variant: ShareCardVariant;
   hostname: string;
   takeMetrics: TakeMetrics | null;
   submissionCount: number;
 };
 
-function getQuarterback(id: string): Quarterback | undefined {
-  return QUARTERBACK_MAP.get(id);
-}
-
 const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function ShareCard(
-  { ranking, variant, hostname, takeMetrics, submissionCount },
+  { ranking, quarterbackMap, variant, hostname, takeMetrics, submissionCount },
   ref,
 ) {
+  const getQuarterback = (id: string) => quarterbackMap.get(id);
   const qb1 = getQuarterback(ranking[0] ?? "");
   const qb1Accent = qb1 ? (TEAM_COLORS[qb1.team] ?? "#2563eb") : "#2563eb";
 
   const heatPanel =
     takeMetrics ? (
       <div className={styles.shareHeat}>
-        <TakeHeatCard submissionCount={submissionCount} takeMetrics={takeMetrics} variant="export" />
+        <TakeHeatCard
+          quarterbackMap={quarterbackMap}
+          submissionCount={submissionCount}
+          takeMetrics={takeMetrics}
+          variant="export"
+        />
       </div>
     ) : null;
 

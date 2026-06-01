@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { QUARTERBACK_MAP } from "../../../quarterbacks";
+import { QUARTERBACKS } from "../../../lib/quarterbacks";
+import { TEAM_COLORS } from "../../../../lib/team-colors";
 
 function initialsAvatar(name: string, teamColor: string) {
   const initials = name
@@ -22,19 +23,23 @@ function initialsAvatar(name: string, teamColor: string) {
   });
 }
 
-export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  const quarterback = QUARTERBACK_MAP.get(id);
+  const quarterback = QUARTERBACKS.find((entry) => entry.id === id);
 
   if (!quarterback) {
     return NextResponse.json({ error: "Unknown quarterback." }, { status: 404 });
   }
 
-  if (!quarterback.espnId) {
-    return initialsAvatar(quarterback.player, "#2563eb");
+  const playerId =
+    new URL(request.url).searchParams.get("playerId") ?? quarterback.espnPlayerId ?? null;
+  const teamColor = TEAM_COLORS[quarterback.team] ?? "#2563eb";
+
+  if (!playerId) {
+    return initialsAvatar(quarterback.player, teamColor);
   }
 
-  const headshotUrl = `https://a.espncdn.com/i/headshots/nfl/players/full/${quarterback.espnId}.png`;
+  const headshotUrl = `https://a.espncdn.com/i/headshots/nfl/players/full/${playerId}.png`;
 
   try {
     const response = await fetch(headshotUrl, {
@@ -42,7 +47,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     });
 
     if (!response.ok) {
-      return initialsAvatar(quarterback.player, "#1d4ed8");
+      return initialsAvatar(quarterback.player, teamColor);
     }
 
     const buffer = await response.arrayBuffer();
@@ -54,6 +59,6 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       },
     });
   } catch {
-    return initialsAvatar(quarterback.player, "#1d4ed8");
+    return initialsAvatar(quarterback.player, teamColor);
   }
 }

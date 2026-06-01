@@ -1,6 +1,8 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { DEFAULT_RANKING } from "../app/quarterbacks";
+import { QUARTERBACKS } from "../app/lib/quarterbacks";
+
+const DEFAULT_RANKING = QUARTERBACKS.map(({ id }) => id);
 import { BASELINE_CONSENSUS_RANKING } from "./baseline-consensus";
 import { buildConsensusSnapshot, type ConsensusSnapshot } from "./consensus";
 

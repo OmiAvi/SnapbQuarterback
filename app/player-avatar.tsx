@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { getHeadshotPath, TEAM_COLORS, type Quarterback } from "./quarterbacks";
+import type { Quarterback } from "./lib/quarterbacks";
+import { getHeadshotPath } from "../lib/headshot";
+import { TEAM_COLORS } from "../lib/team-colors";
 import styles from "./player-avatar.module.css";
 
 type PlayerAvatarProps = {
@@ -41,7 +43,7 @@ export default function PlayerAvatar({ quarterback, size = "md", className = "" 
       alt={quarterback.player}
       className={`${styles.avatar} ${styles[size]} ${className}`}
       onError={() => setFailed(true)}
-      src={getHeadshotPath(quarterback.id)}
+      src={getHeadshotPath(quarterback)}
     />
   );
 }
