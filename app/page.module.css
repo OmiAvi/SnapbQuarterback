@@ -178,6 +178,17 @@
   font-weight: 400;
 }
 
+.headshot {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-ink);
+  object-fit: cover;
+  object-position: top center;
+  background: var(--color-yellow);
+  flex-shrink: 0;
+}
+
 .playerBlock {
   display: grid;
   gap: 4px;
