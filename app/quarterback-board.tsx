@@ -332,6 +332,10 @@ export default function QuarterbackBoard({
   };
 
   const resetBracket = () => {
+    setBracketPicks(BRACKET_ROUNDS.map((round) => Array(round.matches).fill(null)));
+  };
+
+  const randomizeBracket = () => {
     setBracketSeeds(shuffle(defaultRanking));
     setBracketPicks(BRACKET_ROUNDS.map((round) => Array(round.matches).fill(null)));
   };
@@ -652,7 +656,7 @@ export default function QuarterbackBoard({
                   onClick={mode === "bracket" ? resetBracket : resetRanking}
                   type="button"
                 >
-                  {mode === "bracket" ? "Randomize bracket" : "Reset board"}
+                  {mode === "bracket" ? "Reset bracket" : "Reset board"}
                 </button>
                 <button className={styles.secondaryButton} onClick={() => setShareViewOpen(true)} type="button">
                   Share board
@@ -693,11 +697,11 @@ export default function QuarterbackBoard({
                   <strong>{bracketChampionId ? `${quarterbackMap.get(bracketChampionId)?.player} is your champion` : "Pick your QB champion"}</strong>
                   <span>
                     {bracketChampionId
-                      ? "Reset to generate a fresh random bracket."
-                      : "Every reset shuffles the field and gives you a new tournament."}
+                      ? "Reset to clear your picks, or randomize for a fresh field."
+                      : "Use reset to clear picks or randomize to shuffle the field."}
                   </span>
                 </div>
-                <button className={styles.primaryButton} onClick={resetBracket} type="button">
+                <button className={styles.primaryButton} onClick={randomizeBracket} type="button">
                   Randomize matchups
                 </button>
               </div>
