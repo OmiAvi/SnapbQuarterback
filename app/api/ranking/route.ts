@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { QUARTERBACKS } from "../../lib/quarterbacks";
-
-const DEFAULT_RANKING = QUARTERBACKS.map(({ id }) => id);
-const QUARTERBACK_MAP = new Map(QUARTERBACKS.map((quarterback) => [quarterback.id, quarterback]));
-import { getConsensusSnapshot, recordRanking } from "../../../lib/consensus-store";
+import { DEFAULT_RANKING, QUARTERBACK_MAP } from "../../lib/quarterbacks";
+import { getConsensusSnapshot, recordRanking } from "../../lib/consensus-store";
 
 function isValidRanking(ranking: unknown): ranking is string[] {
   if (!Array.isArray(ranking) || ranking.length !== DEFAULT_RANKING.length) {
@@ -11,7 +8,6 @@ function isValidRanking(ranking: unknown): ranking is string[] {
   }
 
   const unique = new Set(ranking);
-
   return unique.size === DEFAULT_RANKING.length && ranking.every((id) => QUARTERBACK_MAP.has(id));
 }
 

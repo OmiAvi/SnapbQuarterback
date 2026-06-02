@@ -13,12 +13,13 @@ export type Quarterback = {
   player: string;
   conference: "AFC" | "NFC";
   espnPlayerId?: string;
+  playerEspnId?: string;
 };
 
 // Fallback starters double as the default board if ESPN is unreachable.
 export const QUARTERBACKS: Quarterback[] = [
-  { id: "ari", espnId: "22", team: "ARI", teamName: "Arizona Cardinals", player: "Kyler Murray", conference: "NFC" },
-  { id: "atl", espnId: "1", team: "ATL", teamName: "Atlanta Falcons", player: "Michael Penix Jr.", conference: "NFC" },
+  { id: "ari", espnId: "22", team: "ARI", teamName: "Arizona Cardinals", player: "Kyler Murray", conference: "NFC", espnPlayerId: "3917315", playerEspnId: "3917315" },
+  { id: "atl", espnId: "1", team: "ATL", teamName: "Atlanta Falcons", player: "Michael Penix Jr.", conference: "NFC", espnPlayerId: "4360423", playerEspnId: "4360423" },
   { id: "bal", espnId: "33", team: "BAL", teamName: "Baltimore Ravens", player: "Lamar Jackson", conference: "AFC" },
   { id: "buf", espnId: "2", team: "BUF", teamName: "Buffalo Bills", player: "Josh Allen", conference: "AFC" },
   { id: "car", espnId: "29", team: "CAR", teamName: "Carolina Panthers", player: "Bryce Young", conference: "NFC" },
@@ -29,7 +30,7 @@ export const QUARTERBACKS: Quarterback[] = [
   { id: "den", espnId: "7", team: "DEN", teamName: "Denver Broncos", player: "Bo Nix", conference: "AFC" },
   { id: "det", espnId: "8", team: "DET", teamName: "Detroit Lions", player: "Jared Goff", conference: "NFC" },
   { id: "gb", espnId: "9", team: "GB", teamName: "Green Bay Packers", player: "Jordan Love", conference: "NFC" },
-  { id: "hou", espnId: "34", team: "HOU", teamName: "Houston Texans", player: "C.J. Stroud", conference: "AFC" },
+  { id: "hou", espnId: "34", team: "HOU", teamName: "Houston Texans", player: "C.J. Stroud", conference: "AFC", espnPlayerId: "4432577", playerEspnId: "4432577" },
   { id: "ind", espnId: "11", team: "IND", teamName: "Indianapolis Colts", player: "Anthony Richardson", conference: "AFC" },
   { id: "jax", espnId: "30", team: "JAX", teamName: "Jacksonville Jaguars", player: "Trevor Lawrence", conference: "AFC" },
   { id: "kc", espnId: "12", team: "KC", teamName: "Kansas City Chiefs", player: "Patrick Mahomes", conference: "AFC" },
@@ -39,7 +40,7 @@ export const QUARTERBACKS: Quarterback[] = [
   { id: "mia", espnId: "15", team: "MIA", teamName: "Miami Dolphins", player: "Tua Tagovailoa", conference: "AFC" },
   { id: "min", espnId: "16", team: "MIN", teamName: "Minnesota Vikings", player: "J.J. McCarthy", conference: "NFC" },
   { id: "ne", espnId: "17", team: "NE", teamName: "New England Patriots", player: "Drake Maye", conference: "AFC" },
-  { id: "no", espnId: "18", team: "NO", teamName: "New Orleans Saints", player: "Tyler Shough", conference: "NFC" },
+  { id: "no", espnId: "18", team: "NO", teamName: "New Orleans Saints", player: "Tyler Shough", conference: "NFC", espnPlayerId: "4360689", playerEspnId: "4360689" },
   { id: "nyg", espnId: "19", team: "NYG", teamName: "New York Giants", player: "Russell Wilson", conference: "NFC" },
   { id: "nyj", espnId: "20", team: "NYJ", teamName: "New York Jets", player: "Justin Fields", conference: "AFC" },
   { id: "phi", espnId: "21", team: "PHI", teamName: "Philadelphia Eagles", player: "Jalen Hurts", conference: "NFC" },
@@ -47,9 +48,51 @@ export const QUARTERBACKS: Quarterback[] = [
   { id: "sf", espnId: "25", team: "SF", teamName: "San Francisco 49ers", player: "Brock Purdy", conference: "NFC" },
   { id: "sea", espnId: "26", team: "SEA", teamName: "Seattle Seahawks", player: "Sam Darnold", conference: "NFC" },
   { id: "tb", espnId: "27", team: "TB", teamName: "Tampa Bay Buccaneers", player: "Baker Mayfield", conference: "NFC" },
-  { id: "ten", espnId: "10", team: "TEN", teamName: "Tennessee Titans", player: "Cam Ward", conference: "AFC" },
+  { id: "ten", espnId: "10", team: "TEN", teamName: "Tennessee Titans", player: "Cam Ward", conference: "AFC", espnPlayerId: "4688380", playerEspnId: "4688380" },
   { id: "wsh", espnId: "28", team: "WSH", teamName: "Washington Commanders", player: "Jayden Daniels", conference: "NFC" },
 ];
+
+export const QUARTERBACK_MAP = new Map(QUARTERBACKS.map((quarterback) => [quarterback.id, quarterback]));
+
+export const TEAM_COLORS: Record<string, string> = {
+  ARI: "#97233f",
+  ATL: "#a71930",
+  BAL: "#241773",
+  BUF: "#00338d",
+  CAR: "#0085ca",
+  CHI: "#0b162a",
+  CIN: "#fb4f14",
+  CLE: "#311d00",
+  DAL: "#003594",
+  DEN: "#fb4f14",
+  DET: "#0076b6",
+  GB: "#203731",
+  HOU: "#03202f",
+  IND: "#002c5f",
+  JAX: "#006778",
+  KC: "#e31837",
+  LV: "#000000",
+  LAC: "#0080c6",
+  LAR: "#003594",
+  MIA: "#008e97",
+  MIN: "#4f2683",
+  NE: "#002244",
+  NO: "#d3bc8d",
+  NYG: "#0b2265",
+  NYJ: "#125740",
+  PHI: "#004c54",
+  PIT: "#ffb612",
+  SF: "#aa0000",
+  SEA: "#002244",
+  TB: "#d50a0a",
+  TEN: "#0c2340",
+  WSH: "#5a1414",
+};
+
+export function getHeadshotPath(id: string, playerId?: string) {
+  const search = playerId ? `?playerId=${encodeURIComponent(playerId)}` : "";
+  return `/api/headshot/${encodeURIComponent(id)}${search}`;
+}
 
 const SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard";
 const DEPTHCHART_URL = (season: number, espnId: string) =>
@@ -80,7 +123,7 @@ async function getCurrentSeason(): Promise<number> {
   }
 }
 
-// Returns the live starting QB's display name and ESPN player ID, or null on any failure.
+// Returns the live starting QB's display name and ESPN player ID for a team, or null on failure.
 async function fetchStarter(espnId: string, season: number): Promise<{ name: string; playerId: string } | null> {
   try {
     const depth = (await fetchJson(DEPTHCHART_URL(season, espnId), QB_TTL)) as { items?: EspnDepthItem[] };
@@ -98,11 +141,13 @@ async function fetchStarter(espnId: string, season: number): Promise<{ name: str
 
     const playerIdMatch = ref.match(/\/athletes\/(\d+)/);
     const playerId = playerIdMatch?.[1];
-
     const athlete = (await fetchJson(ref, QB_TTL)) as { displayName?: string };
     const name = athlete?.displayName;
 
-    if (!name || !playerId) return null;
+    if (!name || !playerId) {
+      return null;
+    }
+
     return { name, playerId };
   } catch {
     return null;
@@ -117,8 +162,7 @@ export async function getStartingQuarterbacks(): Promise<Quarterback[]> {
   return Promise.all(
     QUARTERBACKS.map(async (qb) => {
       const live = await fetchStarter(qb.espnId, season);
-      if (!live) return qb;
-      return { ...qb, player: live.name, espnPlayerId: live.playerId };
+      return live ? { ...qb, player: live.name, espnPlayerId: live.playerId, playerEspnId: live.playerId } : qb;
     }),
   );
 }

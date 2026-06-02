@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Quarterback } from "./lib/quarterbacks";
-import { getHeadshotPath } from "../lib/headshot";
-import { TEAM_COLORS } from "../lib/team-colors";
+import { getHeadshotPath, TEAM_COLORS, type Quarterback } from "./lib/quarterbacks";
 import styles from "./player-avatar.module.css";
 
 type PlayerAvatarProps = {
@@ -28,7 +26,9 @@ export default function PlayerAvatar({ quarterback, size = "md", className = "" 
   if (failed) {
     return (
       <span
+        aria-label={quarterback.player}
         className={`${styles.avatar} ${styles[size]} ${styles.fallback} ${className}`}
+        role="img"
         style={{ background: `linear-gradient(135deg, ${teamColor}, #1d4ed8)` }}
       >
         {getInitials(quarterback.player)}
@@ -37,13 +37,12 @@ export default function PlayerAvatar({ quarterback, size = "md", className = "" 
   }
 
   return (
-    // Native img required for html-to-image export of share cards.
-    // eslint-disable-next-line @next/next/no-img-element -- share card PNG capture
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       alt={quarterback.player}
       className={`${styles.avatar} ${styles[size]} ${className}`}
       onError={() => setFailed(true)}
-      src={getHeadshotPath(quarterback)}
+      src={getHeadshotPath(quarterback.id, quarterback.playerEspnId ?? quarterback.espnPlayerId)}
     />
   );
 }

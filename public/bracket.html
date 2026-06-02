@@ -211,9 +211,9 @@
   var ROUNDS = [
     { key: "r32", title: "Round of 32", matches: 16 },
     { key: "r16", title: "Round of 16", matches: 8 },
-    { key: "qf",  title: "Quarterfinals", matches: 4 },
-    { key: "sf",  title: "Semifinals", matches: 2 },
-    { key: "f",   title: "Final", matches: 1 }
+    { key: "qf", title: "Quarterfinals", matches: 4 },
+    { key: "sf", title: "Semifinals", matches: 2 },
+    { key: "f", title: "Final", matches: 1 }
   ];
 
   var R32 = [
@@ -237,8 +237,8 @@
 
   var STORAGE_KEY = "snapbq:bracket:v1";
 
-  var picks = ROUNDS.map(function (r) {
-    return new Array(r.matches).fill(null);
+  var picks = ROUNDS.map(function (round) {
+    return new Array(round.matches).fill(null);
   });
 
   function loadFromStorage() {
@@ -252,56 +252,56 @@
         if (!Array.isArray(data.picks[i])) return;
         if (data.picks[i].length !== ROUNDS[i].matches) return;
       }
-      for (var r = 0; r < ROUNDS.length; r++) {
-        for (var m = 0; m < ROUNDS[r].matches; m++) {
-          var v = data.picks[r][m];
-          picks[r][m] = (v === 0 || v === 1) ? v : null;
+      for (var roundIndex = 0; roundIndex < ROUNDS.length; roundIndex++) {
+        for (var matchIndex = 0; matchIndex < ROUNDS[roundIndex].matches; matchIndex++) {
+          var value = data.picks[roundIndex][matchIndex];
+          picks[roundIndex][matchIndex] = value === 0 || value === 1 ? value : null;
         }
       }
-    } catch (e) {}
+    } catch (error) {}
   }
 
   function persist() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ picks: picks }));
-    } catch (e) {}
+    } catch (error) {}
   }
 
-  function getParticipant(round, matchIdx, side) {
-    if (round === 0) return R32[matchIdx][side];
-    var feederIdx = matchIdx * 2 + side;
-    return getWinner(round - 1, feederIdx);
+  function getParticipant(round, matchIndex, side) {
+    if (round === 0) return R32[matchIndex][side];
+    var feederIndex = matchIndex * 2 + side;
+    return getWinner(round - 1, feederIndex);
   }
 
-  function getWinner(round, matchIdx) {
-    var pick = picks[round][matchIdx];
+  function getWinner(round, matchIndex) {
+    var pick = picks[round][matchIndex];
     if (pick === null) return null;
-    return getParticipant(round, matchIdx, pick);
+    return getParticipant(round, matchIndex, pick);
   }
 
-  function setPick(round, matchIdx, side) {
-    if (picks[round][matchIdx] === side) return;
-    picks[round][matchIdx] = side;
-    propagateReset(round, matchIdx);
+  function setPick(round, matchIndex, side) {
+    if (picks[round][matchIndex] === side) return;
+    picks[round][matchIndex] = side;
+    propagateReset(round, matchIndex);
     persist();
     render();
   }
 
-  function propagateReset(round, matchIdx) {
+  function propagateReset(round, matchIndex) {
     var nextRound = round + 1;
     if (nextRound >= ROUNDS.length) return;
-    var nextMatchIdx = Math.floor(matchIdx / 2);
-    var fedSide = matchIdx % 2;
-    if (picks[nextRound][nextMatchIdx] === fedSide) {
-      picks[nextRound][nextMatchIdx] = null;
-      propagateReset(nextRound, nextMatchIdx);
+    var nextMatchIndex = Math.floor(matchIndex / 2);
+    var fedSide = matchIndex % 2;
+    if (picks[nextRound][nextMatchIndex] === fedSide) {
+      picks[nextRound][nextMatchIndex] = null;
+      propagateReset(nextRound, nextMatchIndex);
     }
   }
 
   function resetAll() {
-    for (var r = 0; r < ROUNDS.length; r++) {
-      for (var m = 0; m < ROUNDS[r].matches; m++) {
-        picks[r][m] = null;
+    for (var roundIndex = 0; roundIndex < ROUNDS.length; roundIndex++) {
+      for (var matchIndex = 0; matchIndex < ROUNDS[roundIndex].matches; matchIndex++) {
+        picks[roundIndex][matchIndex] = null;
       }
     }
     persist();
@@ -311,32 +311,31 @@
   function el(tag, attrs, children) {
     var node = document.createElement(tag);
     if (attrs) {
-      for (var k in attrs) {
-        var v = attrs[k];
-        if (k === "class") node.className = v;
-        else if (k === "text") node.textContent = v;
-        else if (k.indexOf("on") === 0 && typeof v === "function") {
-          node.addEventListener(k.slice(2).toLowerCase(), v);
-        } else if (v === true) {
-          node.setAttribute(k, "");
-        } else if (v === false || v == null) {
-          // skip
+      for (var key in attrs) {
+        var value = attrs[key];
+        if (key === "class") node.className = value;
+        else if (key === "text") node.textContent = value;
+        else if (key.indexOf("on") === 0 && typeof value === "function") {
+          node.addEventListener(key.slice(2).toLowerCase(), value);
+        } else if (value === true) {
+          node.setAttribute(key, "");
+        } else if (value === false || value == null) {
         } else {
-          node.setAttribute(k, v);
+          node.setAttribute(key, value);
         }
       }
     }
     if (children) {
       for (var i = 0; i < children.length; i++) {
-        var c = children[i];
-        if (c == null) continue;
-        node.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+        var child = children[i];
+        if (child == null) continue;
+        node.appendChild(typeof child === "string" ? document.createTextNode(child) : child);
       }
     }
     return node;
   }
 
-  function renderSlot(round, matchIdx, side, participant, pick, locked) {
+  function renderSlot(round, matchIndex, side, participant, pick, locked) {
     var picked = pick === side;
     var classes = ["slot"];
     if (picked) classes.push("picked");
@@ -351,7 +350,7 @@
     if (locked || participant === null) {
       attrs.disabled = true;
     } else {
-      attrs.onclick = function () { setPick(round, matchIdx, side); };
+      attrs.onclick = function () { setPick(round, matchIndex, side); };
     }
 
     return el("button", attrs, [
@@ -360,15 +359,15 @@
     ]);
   }
 
-  function renderMatch(round, matchIdx) {
-    var top = getParticipant(round, matchIdx, 0);
-    var bottom = getParticipant(round, matchIdx, 1);
-    var pick = picks[round][matchIdx];
+  function renderMatch(round, matchIndex) {
+    var top = getParticipant(round, matchIndex, 0);
+    var bottom = getParticipant(round, matchIndex, 1);
+    var pick = picks[round][matchIndex];
     var locked = top === null || bottom === null;
 
     return el("div", { class: "match" + (locked ? " locked" : "") }, [
-      renderSlot(round, matchIdx, 0, top, pick, locked),
-      renderSlot(round, matchIdx, 1, bottom, pick, locked)
+      renderSlot(round, matchIndex, 0, top, pick, locked),
+      renderSlot(round, matchIndex, 1, bottom, pick, locked)
     ]);
   }
 
@@ -376,13 +375,13 @@
     var bracket = document.getElementById("bracket");
     bracket.innerHTML = "";
 
-    for (var r = 0; r < ROUNDS.length; r++) {
-      var roundDef = ROUNDS[r];
+    for (var roundIndex = 0; roundIndex < ROUNDS.length; roundIndex++) {
+      var roundDef = ROUNDS[roundIndex];
       var roundEl = el("div", { class: "round round-" + roundDef.key });
       roundEl.appendChild(el("div", { class: "round-title", text: roundDef.title }));
       var matchesEl = el("div", { class: "matches" });
-      for (var m = 0; m < roundDef.matches; m++) {
-        matchesEl.appendChild(renderMatch(r, m));
+      for (var matchIndex = 0; matchIndex < roundDef.matches; matchIndex++) {
+        matchesEl.appendChild(renderMatch(roundIndex, matchIndex));
       }
       roundEl.appendChild(matchesEl);
       bracket.appendChild(roundEl);

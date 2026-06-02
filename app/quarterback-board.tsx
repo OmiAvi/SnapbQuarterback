@@ -1,56 +1,32 @@
 "use client";
 
+import {
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import html2canvas from "html2canvas";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { computeTakeMetrics, type ConsensusSnapshot } from "../lib/consensus";
-import { getHeatTheme } from "../lib/heat-theme";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import styles from "./page.module.css";
 import type { Quarterback } from "./lib/quarterbacks";
-import PlayerAvatar from "./player-avatar";
-import ShareCard, { type ShareCardVariant } from "./share-card";
-import TakeHeatCard from "./take-heat-card";
-import { copyCardPngToClipboard, downloadCardPng } from "./share-image";
-
-function moveRankingItem(ranking: string[], from: number, to: number) {
-  if (from === to || to < 0 || to >= ranking.length) {
-    return ranking;
-  }
-
-  const nextRanking = [...ranking];
-  const [selected] = nextRanking.splice(from, 1);
-  nextRanking.splice(to, 0, selected);
-  return nextRanking;
-}
 
 function encodeRanking(ranking: string[]) {
   return ranking.join(".");
 }
 
-function extractRankingCode(value: string) {
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return "";
-  }
-
-  if (trimmed.startsWith("?")) {
-    return new URLSearchParams(trimmed).get("ranking") ?? "";
-  }
-
-  if (/^ranking=/.test(trimmed)) {
-    return trimmed.slice("ranking=".length);
-  }
-
-  const paramMatch = trimmed.match(/[?&]ranking=([^&]+)/);
-  if (paramMatch) {
-    return decodeURIComponent(paramMatch[1]);
-  }
-
-  return trimmed;
-}
-
 function decodeRanking(value: string, quarterbackMap: Map<string, Quarterback>) {
-  const rankingCode = extractRankingCode(value);
+  const rankingCode = value.trim();
 
   if (!rankingCode) {
     return null;
@@ -70,13 +46,6 @@ function decodeRanking(value: string, quarterbackMap: Map<string, Quarterback>) 
   return ranking;
 }
 
-function getPlacementMap(ranking: string[]) {
-  return ranking.reduce<Record<string, number>>((placements, id, index) => {
-    placements[id] = index + 1;
-    return placements;
-  }, {});
-}
-
 function shuffle<T>(input: T[]) {
   const result = [...input];
 
@@ -89,9 +58,165 @@ function shuffle<T>(input: T[]) {
 }
 
 const BLIND_COUNT_OPTIONS = [10, 15, 32] as const;
+const BRACKET_ROUNDS = [
+  { key: "r32", title: "Round of 32", matches: 16 },
+  { key: "r16", title: "Round of 16", matches: 8 },
+  { key: "qf", title: "Quarterfinals", matches: 4 },
+  { key: "sf", title: "Semifinals", matches: 2 },
+  { key: "f", title: "Final", matches: 1 },
+] as const;
+const BRACKET_BASE_SPAN = 10;
+const INTERNS_AVERAGE_ORDER = [
+  "Patrick Mahomes",
+  "Josh Allen",
+  "Lamar Jackson",
+  "Matthew Stafford",
+  "Dak Prescott",
+  "Joe Burrow",
+  "Caleb Williams",
+  "Drake Maye",
+  "Jared Goff",
+  "Justin Herbert",
+  "Jayden Daniels",
+  "Bryce Young",
+  "Jalen Hurts",
+  "Jordan Love",
+  "Bo Nix",
+  "Brock Purdy",
+  "Sam Darnold",
+  "Baker Mayfield",
+  "Trevor Lawrence",
+  "Jaxson Dart",
+  "C.J. Stroud",
+  "Daniel Jones",
+  "Cam Ward",
+  "Kirk Cousins",
+  "Tyler Shough",
+  "Aaron Rodgers",
+  "Malik Willis",
+  "Kyler Murray",
+  "Geno Smith",
+  "Michael Penix Jr.",
+  "Deshaun Watson",
+  "Jacoby Brissett",
+] as const;
+const INTERNS_AVERAGE_BY_NAME: Record<(typeof INTERNS_AVERAGE_ORDER)[number], string> = {
+  "Patrick Mahomes": "1.67",
+  "Josh Allen": "2.00",
+  "Lamar Jackson": "3.00",
+  "Matthew Stafford": "4.17",
+  "Dak Prescott": "7.67",
+  "Joe Burrow": "8.00",
+  "Caleb Williams": "8.17",
+  "Drake Maye": "9.83",
+  "Jared Goff": "10.17",
+  "Justin Herbert": "11.33",
+  "Jayden Daniels": "12.83",
+  "Bryce Young": "13.83",
+  "Jalen Hurts": "14.00",
+  "Jordan Love": "14.00",
+  "Bo Nix": "14.17",
+  "Brock Purdy": "15.17",
+  "Sam Darnold": "15.67",
+  "Baker Mayfield": "17.00",
+  "Trevor Lawrence": "17.00",
+  "Jaxson Dart": "17.33",
+  "C.J. Stroud": "19.17",
+  "Daniel Jones": "23.00",
+  "Cam Ward": "23.17",
+  "Kirk Cousins": "25.17",
+  "Tyler Shough": "25.33",
+  "Aaron Rodgers": "25.50",
+  "Malik Willis": "25.50",
+  "Kyler Murray": "26.67",
+  "Geno Smith": "29.00",
+  "Michael Penix Jr.": "29.17",
+  "Deshaun Watson": "29.50",
+  "Jacoby Brissett": "29.83",
+};
 
-type Mode = "classic" | "blind";
+type Mode = "classic" | "blind" | "bracket";
 type BlindStage = "setup" | "playing" | "done";
+type BracketPicks = (0 | 1 | null)[][];
+
+function SortableRankingItem({
+  id,
+  index,
+  quarterback,
+}: {
+  id: string;
+  index: number;
+  quarterback: Quarterback;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const internsAverage = INTERNS_AVERAGE_BY_NAME[quarterback.player as keyof typeof INTERNS_AVERAGE_BY_NAME];
+
+  return (
+    <li
+      ref={setNodeRef}
+      className={`${styles.rankingItem} ${isDragging ? styles.rankingItemDragging : ""}`}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+    >
+      <div className={styles.rankNumber}>{index + 1}</div>
+      {quarterback.espnPlayerId ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          alt={quarterback.player}
+          className={styles.headshot}
+          src={`https://a.espncdn.com/i/headshots/nfl/players/full/${quarterback.espnPlayerId}.png`}
+        />
+      ) : (
+        <div className={styles.headshotPlaceholder} />
+      )}
+      <div className={styles.playerBlock}>
+        <span className={styles.dragHint}>Drag to reorder</span>
+        <strong>{quarterback.player}</strong>
+        <span>
+          {quarterback.teamName} · {quarterback.conference}
+        </span>
+        {internsAverage ? <small className={styles.internsAverage}>Interns avg: {internsAverage}</small> : null}
+      </div>
+      <button
+        aria-label={`Drag ${quarterback.player}`}
+        className={styles.dragHandleButton}
+        type="button"
+        {...attributes}
+        {...listeners}
+      >
+        <span className={styles.dragHandle} aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
+      </button>
+    </li>
+  );
+}
+
+function subscribeToMount() {
+  return () => {};
+}
+
+function buildInternsRanking(quarterbacks: Quarterback[]) {
+  const remaining = new Map(quarterbacks.map((quarterback) => [quarterback.id, quarterback]));
+  const ranking: string[] = [];
+
+  for (const playerName of INTERNS_AVERAGE_ORDER) {
+    const match = Array.from(remaining.values()).find((quarterback) => quarterback.player === playerName);
+
+    if (!match) {
+      continue;
+    }
+
+    ranking.push(match.id);
+    remaining.delete(match.id);
+  }
+
+  return [...ranking, ...remaining.keys()];
+}
 
 export default function QuarterbackBoard({
   quarterbacks,
@@ -100,7 +225,7 @@ export default function QuarterbackBoard({
   quarterbacks: Quarterback[];
   initialRankingCode: string;
 }) {
-  const defaultRanking = useMemo(() => quarterbacks.map(({ id }) => id), [quarterbacks]);
+  const defaultRanking = useMemo(() => buildInternsRanking(quarterbacks), [quarterbacks]);
   const quarterbackMap = useMemo(
     () => new Map(quarterbacks.map((quarterback) => [quarterback.id, quarterback])),
     [quarterbacks],
@@ -115,79 +240,20 @@ export default function QuarterbackBoard({
   const [blindQueue, setBlindQueue] = useState<string[]>([]);
   const [blindCurrent, setBlindCurrent] = useState<string | null>(null);
   const [blindSlots, setBlindSlots] = useState<(string | null)[]>([]);
+  const [bracketSeeds, setBracketSeeds] = useState<string[]>([]);
+  const [bracketPicks, setBracketPicks] = useState<BracketPicks>(() =>
+    BRACKET_ROUNDS.map((round) => Array(round.matches).fill(null)),
+  );
   const [shareViewOpen, setShareViewOpen] = useState(false);
   const [shareMessage, setShareMessage] = useState("");
   const sharePreviewRef = useRef<HTMLDivElement | null>(null);
-  const [comparisonInput, setComparisonInput] = useState("");
-  const [comparisonRanking, setComparisonRanking] = useState<string[] | null>(null);
-  const [comparisonError, setComparisonError] = useState("");
-  const [imageVariant, setImageVariant] = useState<ShareCardVariant>("top5");
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const [consensus, setConsensus] = useState<ConsensusSnapshot | null>(null);
-
-  const lastSubmittedCode = useRef("");
-  const top5CardRef = useRef<HTMLDivElement>(null);
-  const fullCardRef = useRef<HTMLDivElement>(null);
-
-  const hostname = useSyncExternalStore(
-    () => () => {},
-    () => window.location.host || "snapbquarterback.com",
-    () => "snapbquarterback.com",
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
   );
+  const isMounted = useSyncExternalStore(subscribeToMount, () => true, () => false);
 
   const shareCode = useMemo(() => encodeRanking(ranking), [ranking]);
-  const rankingIsValid = ranking.length === defaultRanking.length;
-
-  const takeMetrics = useMemo(
-    () => (consensus ? computeTakeMetrics(ranking, consensus) : null),
-    [consensus, ranking],
-  );
-
-  const submitRankingToCommunity = useCallback(async (currentRanking: string[]) => {
-    const response = await fetch("/api/ranking", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ranking: currentRanking }),
-    });
-
-    if (!response.ok) {
-      return;
-    }
-
-    const payload = (await response.json()) as { consensus: ConsensusSnapshot };
-    setConsensus(payload.consensus);
-    lastSubmittedCode.current = encodeRanking(currentRanking);
-  }, []);
-
-  useEffect(() => {
-    fetch("/api/consensus")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload: ConsensusSnapshot | null) => {
-        if (payload) {
-          setConsensus(payload);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!rankingIsValid) {
-      return;
-    }
-
-    const rankingCode = encodeRanking(ranking);
-
-    if (rankingCode === lastSubmittedCode.current) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      void submitRankingToCommunity(ranking);
-    }, 2000);
-
-    return () => window.clearTimeout(timeout);
-  }, [ranking, rankingIsValid, submitRankingToCommunity]);
-
   const shareUrl = useMemo(() => {
     if (typeof window === "undefined") {
       return `?ranking=${shareCode}`;
@@ -219,11 +285,18 @@ export default function QuarterbackBoard({
     () => blindSlots.filter((id): id is string => Boolean(id)),
     [blindSlots],
   );
-  const blindTopThree = blindResultRanking.slice(0, 3).map((id) => quarterbackMap.get(id)?.player ?? id);
+  const blindTopFive = blindResultRanking.slice(0, 5).map((id) => quarterbackMap.get(id)?.player ?? id);
   const isSharingBlindResult = mode === "blind" && blindStage === "done" && blindResultRanking.length > 0;
   const exportRanking = isSharingBlindResult ? blindResultRanking : ranking;
-  const exportTopPlayers = isSharingBlindResult ? blindTopThree : topFive.slice(0, 3);
-  const exportPlacements = useMemo(() => getPlacementMap(exportRanking), [exportRanking]);
+  const exportTopPlayers = isSharingBlindResult ? blindTopFive : topFive;
+  const exportPlacements = useMemo(
+    () =>
+      exportRanking.reduce<Record<string, number>>((placements, id, index) => {
+        placements[id] = index + 1;
+        return placements;
+      }, {}),
+    [exportRanking],
+  );
   const exportColumns = useMemo(() => {
     const rowsPerColumn = exportRanking.length > 16 ? 8 : Math.max(5, Math.ceil(exportRanking.length / 2));
 
@@ -231,67 +304,36 @@ export default function QuarterbackBoard({
       exportRanking.slice(columnIndex * rowsPerColumn, columnIndex * rowsPerColumn + rowsPerColumn),
     );
   }, [exportRanking]);
+  const bracketChampionId = useMemo(() => {
+    const finalPick = bracketPicks[BRACKET_ROUNDS.length - 1]?.[0];
 
-  const comparisonRows = useMemo(() => {
-    if (!comparisonRanking) {
-      return [];
+    if (finalPick === null || bracketSeeds.length === 0) {
+      return null;
     }
 
-    const myPlacements = getPlacementMap(ranking);
-    const theirPlacements = getPlacementMap(comparisonRanking);
+    const getWinner = (roundIndex: number, matchIndex: number): string | null => {
+      const pick = bracketPicks[roundIndex]?.[matchIndex];
+      if (pick === null) {
+        return null;
+      }
 
-    return ranking
-      .map((id) => {
-        const quarterback = quarterbackMap.get(id);
+      if (roundIndex === 0) {
+        return bracketSeeds[matchIndex * 2 + pick] ?? null;
+      }
 
-        if (!quarterback) {
-          return null;
-        }
+      return getWinner(roundIndex - 1, matchIndex * 2 + pick);
+    };
 
-        const mine = myPlacements[id];
-        const theirs = theirPlacements[id];
-
-        return {
-          quarterback,
-          mine,
-          theirs,
-          delta: Math.abs(mine - theirs),
-        };
-      })
-      .filter((row): row is NonNullable<typeof row> => Boolean(row))
-      .sort((left, right) => right.delta - left.delta || left.mine - right.mine);
-  }, [comparisonRanking, ranking, quarterbackMap]);
-
-  const averageDelta = comparisonRows.length
-    ? comparisonRows.reduce((total, row) => total + row.delta, 0) / comparisonRows.length
-    : 0;
-  const agreementScore = comparisonRows.length
-    ? Math.max(0, Math.round((1 - averageDelta / (defaultRanking.length - 1)) * 100))
-    : 0;
-  const biggestGap = comparisonRows[0];
-
-  const updateRanking = (from: number, to: number) => {
-    setRanking((currentRanking) => moveRankingItem(currentRanking, from, to));
-  };
+    return getWinner(BRACKET_ROUNDS.length - 1, 0);
+  }, [bracketPicks, bracketSeeds]);
 
   const resetRanking = () => {
     setRanking(defaultRanking);
-    setComparisonRanking(null);
-    setComparisonInput("");
-    setComparisonError("");
   };
 
-  const loadComparison = () => {
-    const decodedRanking = decodeRanking(comparisonInput, quarterbackMap);
-
-    if (!decodedRanking) {
-      setComparisonRanking(null);
-      setComparisonError("Paste a SnapbQuarterback share link or ranking code to compare boards.");
-      return;
-    }
-
-    setComparisonRanking(decodedRanking);
-    setComparisonError("");
+  const resetBracket = () => {
+    setBracketSeeds(shuffle(defaultRanking));
+    setBracketPicks(BRACKET_ROUNDS.map((round) => Array(round.matches).fill(null)));
   };
 
   const resetBlind = () => {
@@ -349,7 +391,126 @@ export default function QuarterbackBoard({
     if (nextMode === "classic") {
       resetBlind();
     }
+
+    if (nextMode === "bracket" && bracketSeeds.length === 0) {
+      setBracketSeeds(shuffle(defaultRanking));
+    }
   };
+
+  const getBracketParticipant = (roundIndex: number, matchIndex: number, side: 0 | 1): string | null => {
+    if (roundIndex === 0) {
+      return bracketSeeds[matchIndex * 2 + side] ?? null;
+    }
+
+    return getBracketWinner(roundIndex - 1, matchIndex * 2 + side);
+  };
+
+  const getBracketWinner = (roundIndex: number, matchIndex: number): string | null => {
+    const pick = bracketPicks[roundIndex]?.[matchIndex];
+
+    if (pick === null) {
+      return null;
+    }
+
+    return getBracketParticipant(roundIndex, matchIndex, pick);
+  };
+
+  const updateBracketPick = (roundIndex: number, matchIndex: number, side: 0 | 1) => {
+    setBracketPicks((currentPicks) => {
+      if (currentPicks[roundIndex]?.[matchIndex] === side) {
+        return currentPicks;
+      }
+
+      const nextPicks = currentPicks.map((round) => [...round]);
+      nextPicks[roundIndex][matchIndex] = side;
+
+      let nextRoundIndex = roundIndex + 1;
+      let currentMatchIndex = matchIndex;
+
+      while (nextRoundIndex < nextPicks.length) {
+        const nextMatchIndex = Math.floor(currentMatchIndex / 2);
+        const fedSide = currentMatchIndex % 2;
+
+        if (nextPicks[nextRoundIndex][nextMatchIndex] === fedSide) {
+          nextPicks[nextRoundIndex][nextMatchIndex] = null;
+          currentMatchIndex = nextMatchIndex;
+          nextRoundIndex += 1;
+          continue;
+        }
+
+        break;
+      }
+
+      return nextPicks;
+    });
+  };
+
+  const handleClassicDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    setRanking((currentRanking) => {
+      const oldIndex = currentRanking.indexOf(String(active.id));
+      const newIndex = currentRanking.indexOf(String(over.id));
+
+      if (oldIndex === -1 || newIndex === -1) {
+        return currentRanking;
+      }
+
+      return arrayMove(currentRanking, oldIndex, newIndex);
+    });
+  };
+
+  const classicRankingList = (
+    <ol className={styles.rankingList}>
+      {ranking.map((id, index) => {
+        const quarterback = quarterbackMap.get(id);
+        const internsAverage = quarterback
+          ? INTERNS_AVERAGE_BY_NAME[quarterback.player as keyof typeof INTERNS_AVERAGE_BY_NAME]
+          : undefined;
+
+        if (!quarterback) {
+          return null;
+        }
+
+        return isMounted ? (
+          <SortableRankingItem id={quarterback.id} index={index} key={quarterback.id} quarterback={quarterback} />
+        ) : (
+          <li className={styles.rankingItem} key={quarterback.id}>
+            <div className={styles.rankNumber}>{index + 1}</div>
+            {quarterback.espnPlayerId ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                alt={quarterback.player}
+                className={styles.headshot}
+                src={`https://a.espncdn.com/i/headshots/nfl/players/full/${quarterback.espnPlayerId}.png`}
+              />
+            ) : (
+              <div className={styles.headshotPlaceholder} />
+            )}
+            <div className={styles.playerBlock}>
+              <span className={styles.dragHint}>Drag to reorder</span>
+              <strong>{quarterback.player}</strong>
+              <span>
+                {quarterback.teamName} · {quarterback.conference}
+              </span>
+              {internsAverage ? (
+                <small className={styles.internsAverage}>Interns avg: {internsAverage}</small>
+              ) : null}
+            </div>
+            <div className={styles.dragHandleButton} aria-hidden="true">
+              <span className={styles.dragHandle}>
+                <span />
+                <span />
+                <span />
+              </span>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
 
   const copyValue = async (value: string, label: string) => {
     try {
@@ -412,82 +573,26 @@ export default function QuarterbackBoard({
     await copyValue(shareUrl, "Link");
   };
 
-  const getActiveCardNode = () => {
-    return imageVariant === "top5" ? top5CardRef.current : fullCardRef.current;
-  };
-
-  const runImageAction = async (action: "download" | "copy") => {
-    const node = getActiveCardNode();
-
-    if (!node || !rankingIsValid) {
-      setShareMessage("Could not generate image. Try again after your board loads.");
-      return;
-    }
-
-    setIsGeneratingImage(true);
-
-    try {
-      if (encodeRanking(ranking) !== lastSubmittedCode.current) {
-        await submitRankingToCommunity(ranking);
-      }
-
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => resolve());
-        });
-      });
-
-      if (action === "download") {
-        const filename =
-          imageVariant === "top5" ? "snapb-quarterback-top5.png" : "snapb-quarterback-full.png";
-        await downloadCardPng(node, filename);
-        setShareMessage("Image downloaded.");
-      } else {
-        await copyCardPngToClipboard(node);
-        setShareMessage("Image copied.");
-      }
-    } catch {
-      if (action === "copy") {
-        setShareMessage("Could not copy image. Try download, or use Chrome.");
-      } else {
-        setShareMessage("Could not download image. Please try again.");
-      }
-    } finally {
-      setIsGeneratingImage(false);
-    }
-  };
-
   return (
     <main className={styles.page}>
-      <div className={styles.exportHost} aria-hidden="true">
-        <ShareCard
-          hostname={hostname}
-          quarterbackMap={quarterbackMap}
-          ranking={ranking}
-          ref={top5CardRef}
-          submissionCount={consensus?.submissionCount ?? 0}
-          takeMetrics={takeMetrics}
-          variant="top5"
-        />
-        <ShareCard
-          hostname={hostname}
-          quarterbackMap={quarterbackMap}
-          ranking={ranking}
-          ref={fullCardRef}
-          submissionCount={consensus?.submissionCount ?? 0}
-          takeMetrics={takeMetrics}
-          variant="full"
-        />
-      </div>
-
       <section className={styles.hero}>
-        <div>
-          <p className={styles.eyebrow}>NFL QB Tiers</p>
-          <h1>Rank every current starting quarterback, save your board, and compare takes.</h1>
-          <p className={styles.lede}>
-            Build your own 1-to-32 quarterback ladder, then keep a compact code or shareable link that
-            loads your exact board for anyone else who wants to debate it.
-          </p>
+        <div className={styles.heroTop}>
+          <div>
+            <p className={styles.eyebrow}>NFL QB Tiers</p>
+            <h1>Rank every current starting quarterback your way.</h1>
+            <p className={styles.lede}>
+              Build a full 1-to-32 board in classic mode, test your instincts in blind mode, or settle it
+              in the QB bracket.
+            </p>
+          </div>
+          <div className={styles.heroArtWrap}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt="Top NFL quarterbacks lineup"
+              className={styles.heroArt}
+              src="/hero-qbs.png"
+            />
+          </div>
         </div>
         <div className={styles.summaryGrid}>
           <article className={styles.card}>
@@ -500,24 +605,8 @@ export default function QuarterbackBoard({
             <strong>{topFive.join(", ")}</strong>
             <span>Instantly updates as you reorder the board.</span>
           </article>
-          <article className={styles.card}>
-            <span className={styles.cardLabel}>Your take</span>
-            <strong
-              style={
-                takeMetrics ? { color: getHeatTheme(takeMetrics.takeHeat).accent } : undefined
-              }
-            >
-              {takeMetrics
-                ? `${takeMetrics.takeHeat} heat · ${getHeatTheme(takeMetrics.takeHeat).label}`
-                : "…"}
-            </strong>
-            <span>
-              {takeMetrics
-                ? `${takeMetrics.fanMatchPercent}% match with ${consensus?.submissionCount.toLocaleString() ?? "0"} fan boards.`
-                : "Loading community consensus…"}
-            </span>
-          </article>
         </div>
+
       </section>
 
       <section className={styles.content}>
@@ -527,37 +616,43 @@ export default function QuarterbackBoard({
               <h2>Your ranking</h2>
               <p>
                 {mode === "classic"
-                  ? "Use the controls to move quarterbacks up or down until the board matches your take."
-                  : "Blind mode: place each quarterback as it appears. Every pick is final and you cannot see who is next."}
+                  ? "Drag player cards up and down to build the exact board that matches your take."
+                  : mode === "blind"
+                    ? "Blind mode: place each quarterback as it appears. Every pick is final and you cannot see who is next."
+                    : "Bracket mode: randomized head-to-head matchups. Change an earlier pick and anything downstream resets."}
               </p>
             </div>
             <div className={styles.panelActions}>
               <div className={styles.modeToggle}>
                 <button
-                  className={mode === "classic" ? styles.primaryButton : styles.secondaryButton}
+                  className={`${styles.modeButton} ${mode === "classic" ? styles.modeButtonActive : ""}`}
                   onClick={() => selectMode("classic")}
                   type="button"
                 >
                   Classic
                 </button>
                 <button
-                  className={mode === "blind" ? styles.primaryButton : styles.secondaryButton}
+                  className={`${styles.modeButton} ${mode === "bracket" ? styles.modeButtonActive : ""}`}
+                  onClick={() => selectMode("bracket")}
+                  type="button"
+                >
+                  Bracket
+                </button>
+                <button
+                  className={`${styles.modeButton} ${mode === "blind" ? styles.modeButtonActive : ""}`}
                   onClick={() => selectMode("blind")}
                   type="button"
                 >
-                  Blind ranking
-                </button>
-                <button
-                  className={styles.secondaryButton}
-                  onClick={() => window.open("/bracket.html", "_blank", "noopener")}
-                  type="button"
-                >
-                  QB Bracket
+                  Blind
                 </button>
               </div>
               <div className={styles.buttonRow}>
-                <button className={styles.secondaryButton} onClick={resetRanking} type="button">
-                  Reset board
+                <button
+                  className={styles.secondaryButton}
+                  onClick={mode === "bracket" ? resetBracket : resetRanking}
+                  type="button"
+                >
+                  {mode === "bracket" ? "Randomize bracket" : "Reset board"}
                 </button>
                 <button className={styles.secondaryButton} onClick={() => setShareViewOpen(true)} type="button">
                   Share board
@@ -567,66 +662,96 @@ export default function QuarterbackBoard({
           </div>
 
           {mode === "classic" ? (
-            <ol className={styles.rankingList}>
-              {ranking.map((id, index) => {
-                const quarterback = quarterbackMap.get(id);
-
-                if (!quarterback) {
-                  return null;
-                }
-
-                return (
-                  <li className={styles.rankingItem} key={quarterback.id}>
-                    <div className={styles.rankNumber}>{index + 1}</div>
-                    <PlayerAvatar quarterback={quarterback} size="md" />
-                    <div className={styles.playerBlock}>
-                      <strong>{quarterback.player}</strong>
-                      <span>
-                        {quarterback.teamName} · {quarterback.conference}
-                      </span>
+            isMounted ? (
+              <DndContext collisionDetection={closestCenter} onDragEnd={handleClassicDragEnd} sensors={sensors}>
+                <SortableContext items={ranking} strategy={verticalListSortingStrategy}>
+                  <div className={styles.classicBoard}>
+                    <div className={styles.internsNote}>
+                      <span className={styles.cardLabel}>Interns Ranking</span>
+                      <p>The classic board starts in the SnapBack interns average ranking order before you make your own moves.</p>
                     </div>
-                    <div className={styles.controls}>
-                      <button
-                        aria-label={`Move ${quarterback.player} to the top`}
-                        className={styles.controlButton}
-                        disabled={index === 0}
-                        onClick={() => updateRanking(index, 0)}
-                        type="button"
-                      >
-                        Top
-                      </button>
-                      <button
-                        aria-label={`Move ${quarterback.player} up`}
-                        className={styles.controlButton}
-                        disabled={index === 0}
-                        onClick={() => updateRanking(index, index - 1)}
-                        type="button"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        aria-label={`Move ${quarterback.player} down`}
-                        className={styles.controlButton}
-                        disabled={index === ranking.length - 1}
-                        onClick={() => updateRanking(index, index + 1)}
-                        type="button"
-                      >
-                        ↓
-                      </button>
-                      <button
-                        aria-label={`Move ${quarterback.player} to the bottom`}
-                        className={styles.controlButton}
-                        disabled={index === ranking.length - 1}
-                        onClick={() => updateRanking(index, ranking.length - 1)}
-                        type="button"
-                      >
-                        Bottom
-                      </button>
+                    {classicRankingList}
+                  </div>
+                </SortableContext>
+              </DndContext>
+            ) : (
+              <div className={styles.classicBoard}>
+                <div className={styles.internsNote}>
+                  <span className={styles.cardLabel}>Interns Ranking</span>
+                  <p>The classic board starts in the SnapBack interns average ranking order before you make your own moves.</p>
+                </div>
+                {classicRankingList}
+              </div>
+            )
+          ) : null}
+
+          {mode === "bracket" ? (
+            <div className={styles.bracketBoard}>
+              <div className={styles.bracketBanner}>
+                <div>
+                  <span className={styles.cardLabel}>Bracket Mode</span>
+                  <strong>{bracketChampionId ? `${quarterbackMap.get(bracketChampionId)?.player} is your champion` : "Pick your QB champion"}</strong>
+                  <span>
+                    {bracketChampionId
+                      ? "Reset to generate a fresh random bracket."
+                      : "Every reset shuffles the field and gives you a new tournament."}
+                  </span>
+                </div>
+                <button className={styles.primaryButton} onClick={resetBracket} type="button">
+                  Randomize matchups
+                </button>
+              </div>
+              <div className={styles.bracketGrid}>
+                {BRACKET_ROUNDS.map((round, roundIndex) => (
+                  <section className={styles.bracketRound} key={round.key}>
+                    <div className={styles.bracketRoundTitle}>{round.title}</div>
+                    <div className={styles.bracketMatches}>
+                      {Array.from({ length: round.matches }, (_, matchIndex) => {
+                        const topId = getBracketParticipant(roundIndex, matchIndex, 0);
+                        const bottomId = getBracketParticipant(roundIndex, matchIndex, 1);
+                        const topQuarterback = topId ? quarterbackMap.get(topId) : null;
+                        const bottomQuarterback = bottomId ? quarterbackMap.get(bottomId) : null;
+                        const pick = bracketPicks[roundIndex]?.[matchIndex] ?? null;
+                        const locked = !topQuarterback || !bottomQuarterback;
+                        const slotSpan = BRACKET_BASE_SPAN * 2 ** roundIndex;
+                        const slotStart = 1 + matchIndex * slotSpan;
+
+                        return (
+                          <div
+                            className={styles.bracketMatch}
+                            key={`${round.key}-${matchIndex}`}
+                            style={{
+                              gridRow: `${slotStart} / span ${slotSpan}`,
+                            }}
+                          >
+                            <div className={`${styles.bracketMatchCard} ${locked ? styles.bracketMatchLocked : ""}`}>
+                              {[topQuarterback, bottomQuarterback].map((quarterback, side) => {
+                                const isPicked = pick === side;
+                                const isEliminated = pick !== null && pick !== side && quarterback;
+
+                                return (
+                                  <button
+                                    aria-pressed={isPicked}
+                                    className={`${styles.bracketSlot} ${isPicked ? styles.bracketSlotPicked : ""} ${isEliminated ? styles.bracketSlotEliminated : ""}`}
+                                    disabled={locked || !quarterback}
+                                    key={quarterback?.id ?? `${round.key}-${matchIndex}-${side}`}
+                                    onClick={() => updateBracketPick(roundIndex, matchIndex, side as 0 | 1)}
+                                    type="button"
+                                  >
+                                    <span className={styles.bracketSeed}>{quarterback ? quarterback.team : "TBD"}</span>
+                                    <span className={styles.bracketName}>{quarterback?.player ?? "TBD"}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </li>
-                );
-              })}
-            </ol>
+                  </section>
+                ))}
+              </div>
+            </div>
           ) : null}
 
           {mode === "blind" && blindStage === "setup" ? (
@@ -703,7 +828,7 @@ export default function QuarterbackBoard({
                 <span>Apply these locked results to your full board or run another blind round.</span>
               </div>
               <ol className={styles.rankingList}>
-                {blindSlots.map((id) => {
+                {blindSlots.map((id, index) => {
                   const quarterback = id ? quarterbackMap.get(id) : null;
 
                   if (!quarterback) {
@@ -712,7 +837,16 @@ export default function QuarterbackBoard({
 
                   return (
                     <li className={styles.rankingItem} key={`blind-finish-${quarterback.id}`}>
-                      <PlayerAvatar quarterback={quarterback} size="md" />
+                      {quarterback.espnPlayerId ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          alt={quarterback.player}
+                          className={styles.headshot}
+                          src={`https://a.espncdn.com/i/headshots/nfl/players/full/${quarterback.espnPlayerId}.png`}
+                        />
+                      ) : (
+                        <div className={styles.rankNumber}>{index + 1}</div>
+                      )}
                       <div className={styles.playerBlock}>
                         <strong>{quarterback.player}</strong>
                         <span>
@@ -733,157 +867,6 @@ export default function QuarterbackBoard({
               </div>
             </div>
           ) : null}
-        </div>
-
-        <div className={styles.sidebar}>
-          <section className={styles.panel}>
-            <div className={styles.panelHeader}>
-              <div>
-                <h2>Share your board</h2>
-                <p>Send the full link, ranking code, or a shareable image for social posts.</p>
-              </div>
-              {shareMessage ? <span className={styles.copyMessage}>{shareMessage}</span> : null}
-            </div>
-            <label className={styles.fieldLabel} htmlFor="share-url">
-              Share link
-            </label>
-            <textarea className={styles.textarea} id="share-url" readOnly value={shareUrl} />
-            <div className={styles.buttonRow}>
-              <button className={styles.primaryButton} onClick={shareBoardLink} type="button">
-                Share link
-              </button>
-              <button className={styles.secondaryButton} onClick={() => copyValue(shareUrl, "Link")} type="button">
-                Copy link
-              </button>
-            </div>
-
-            {takeMetrics && consensus ? (
-              <TakeHeatCard
-                quarterbackMap={quarterbackMap}
-                submissionCount={consensus.submissionCount}
-                takeMetrics={takeMetrics}
-                variant="sidebar"
-              />
-            ) : null}
-
-            <p className={styles.fieldLabel}>Share image</p>
-            <div className={styles.variantToggle} role="group" aria-label="Share image layout">
-              <button
-                aria-pressed={imageVariant === "top5"}
-                className={`${styles.variantButton} ${imageVariant === "top5" ? styles.variantButtonActive : ""}`}
-                onClick={() => setImageVariant("top5")}
-                type="button"
-              >
-                Top 5
-              </button>
-              <button
-                aria-pressed={imageVariant === "full"}
-                className={`${styles.variantButton} ${imageVariant === "full" ? styles.variantButtonActive : ""}`}
-                onClick={() => setImageVariant("full")}
-                type="button"
-              >
-                Full board
-              </button>
-            </div>
-            <div className={styles.buttonRow}>
-              <button
-                aria-label={`Download ${imageVariant === "top5" ? "Top 5" : "Full board"} image`}
-                className={styles.primaryButton}
-                disabled={!rankingIsValid || isGeneratingImage}
-                onClick={() => runImageAction("download")}
-                type="button"
-              >
-                {isGeneratingImage ? "Generating…" : "Download image"}
-              </button>
-              <button
-                aria-label={`Copy ${imageVariant === "top5" ? "Top 5" : "Full board"} image`}
-                className={styles.secondaryButton}
-                disabled={!rankingIsValid || isGeneratingImage}
-                onClick={() => runImageAction("copy")}
-                type="button"
-              >
-                Copy image
-              </button>
-            </div>
-
-            <label className={styles.fieldLabel} htmlFor="share-code">
-              Ranking code
-            </label>
-            <textarea className={styles.textarea} id="share-code" readOnly value={shareCode} />
-            <button className={styles.secondaryButton} onClick={() => copyValue(shareCode, "Code")} type="button">
-              Copy ranking code
-            </button>
-          </section>
-
-          <section className={styles.panel}>
-            <div className={styles.panelHeader}>
-              <div>
-                <h2>Compare with someone else</h2>
-                <p>Paste another fan&apos;s link or ranking code to spot the biggest disagreements.</p>
-              </div>
-            </div>
-            <label className={styles.fieldLabel} htmlFor="comparison-input">
-              Opponent link or code
-            </label>
-            <textarea
-              className={styles.textarea}
-              id="comparison-input"
-              onChange={(event) => setComparisonInput(event.target.value)}
-              placeholder="https://.../SnapbQuarterback?ranking=..."
-              value={comparisonInput}
-            />
-            <div className={styles.buttonRow}>
-              <button className={styles.primaryButton} onClick={loadComparison} type="button">
-                Compare boards
-              </button>
-              <button
-                className={styles.secondaryButton}
-                onClick={() => {
-                  setComparisonInput("");
-                  setComparisonRanking(null);
-                  setComparisonError("");
-                }}
-                type="button"
-              >
-                Clear
-              </button>
-            </div>
-            {comparisonError ? <p className={styles.error}>{comparisonError}</p> : null}
-
-            {comparisonRanking ? (
-              <div className={styles.comparisonPanel}>
-                <div className={styles.comparisonStats}>
-                  <article className={styles.card}>
-                    <span className={styles.cardLabel}>Agreement score</span>
-                    <strong>{agreementScore}%</strong>
-                    <span>Based on average rank distance across all 32 quarterbacks.</span>
-                  </article>
-                  <article className={styles.card}>
-                    <span className={styles.cardLabel}>Biggest disagreement</span>
-                    <strong>{biggestGap?.quarterback.player}</strong>
-                    <span>
-                      You have him {biggestGap?.mine}, they have him {biggestGap?.theirs}.
-                    </span>
-                  </article>
-                </div>
-                <div className={styles.comparisonTable}>
-                  {comparisonRows.slice(0, 8).map((row) => (
-                    <div className={styles.comparisonRow} key={row.quarterback.id}>
-                      <div>
-                        <strong>{row.quarterback.player}</strong>
-                        <span>{row.quarterback.team}</span>
-                      </div>
-                      <div className={styles.comparisonRanks}>
-                        <span>You: {row.mine}</span>
-                        <span>Them: {row.theirs}</span>
-                        <span>Δ {row.delta}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </section>
         </div>
       </section>
 
@@ -939,7 +922,7 @@ export default function QuarterbackBoard({
                     <p>{quarterbackMap.get(exportRanking[0])?.teamName}</p>
                   </article>
                   <article className={styles.shareHighlightCard}>
-                    <span>Top 3</span>
+                    <span>Top 5</span>
                     <strong>{exportTopPlayers.join(", ")}</strong>
                     <p>{isSharingBlindResult ? "Locked in from your blind round" : "Headliners from this board"}</p>
                   </article>

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { QUARTERBACKS } from "../../../lib/quarterbacks";
-import { TEAM_COLORS } from "../../../../lib/team-colors";
+import { QUARTERBACK_MAP, TEAM_COLORS } from "../../../lib/quarterbacks";
 
 function initialsAvatar(name: string, teamColor: string) {
   const initials = name
@@ -25,21 +24,21 @@ function initialsAvatar(name: string, teamColor: string) {
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  const quarterback = QUARTERBACKS.find((entry) => entry.id === id);
+  const quarterback = QUARTERBACK_MAP.get(id);
 
   if (!quarterback) {
     return NextResponse.json({ error: "Unknown quarterback." }, { status: 404 });
   }
 
-  const playerId =
-    new URL(request.url).searchParams.get("playerId") ?? quarterback.espnPlayerId ?? null;
-  const teamColor = TEAM_COLORS[quarterback.team] ?? "#2563eb";
+  const fallbackColor = TEAM_COLORS[quarterback.team] ?? "#2563eb";
+  const playerId = new URL(request.url).searchParams.get("playerId");
+  const effectivePlayerId = playerId || quarterback.playerEspnId || quarterback.espnPlayerId;
 
-  if (!playerId) {
-    return initialsAvatar(quarterback.player, teamColor);
+  if (!effectivePlayerId) {
+    return initialsAvatar(quarterback.player, fallbackColor);
   }
 
-  const headshotUrl = `https://a.espncdn.com/i/headshots/nfl/players/full/${playerId}.png`;
+  const headshotUrl = `https://a.espncdn.com/i/headshots/nfl/players/full/${effectivePlayerId}.png`;
 
   try {
     const response = await fetch(headshotUrl, {
@@ -47,7 +46,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
     });
 
     if (!response.ok) {
-      return initialsAvatar(quarterback.player, teamColor);
+      return initialsAvatar(quarterback.player, fallbackColor);
     }
 
     const buffer = await response.arrayBuffer();
@@ -59,6 +58,6 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
       },
     });
   } catch {
-    return initialsAvatar(quarterback.player, teamColor);
+    return initialsAvatar(quarterback.player, fallbackColor);
   }
 }

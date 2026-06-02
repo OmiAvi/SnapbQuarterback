@@ -17,7 +17,14 @@
 .hero {
   display: grid;
   gap: 24px;
-  margin-bottom: 32px;
+  margin-bottom: 28px;
+}
+
+.heroTop {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: end;
 }
 
 .eyebrow {
@@ -38,7 +45,7 @@
 .hero h1 {
   max-width: 14ch;
   font-family: var(--font-display);
-  font-size: clamp(3rem, 8vw, 5.75rem);
+  font-size: clamp(2.7rem, 7vw, 5rem);
   font-weight: 400;
   line-height: 0.92;
   letter-spacing: -0.005em;
@@ -52,6 +59,20 @@
   color: var(--color-ink-soft);
   font-size: 1.05rem;
   line-height: 1.7;
+}
+
+.heroArtWrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.heroArt {
+  width: min(100%, 1000px);
+  height: auto;
+  display: block;
+  transform: translateY(-65px);
+  filter: drop-shadow(0 18px 28px rgba(10, 10, 10, 0.16));
 }
 
 .summaryGrid {
@@ -97,10 +118,6 @@
   text-transform: uppercase;
 }
 
-.content {
-  width: min(960px, 100%);
-}
-
 .panel {
   padding: 24px;
 }
@@ -130,8 +147,12 @@
 
 .panelActions {
   display: grid;
-  justify-items: end;
+  justify-items: center;
   gap: 10px;
+}
+
+.panelActions .buttonRow {
+  justify-content: center;
 }
 
 .copyMessage {
@@ -149,10 +170,29 @@
   list-style: none;
 }
 
+.classicBoard {
+  display: grid;
+  gap: 16px;
+}
+
+.internsNote {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1.5px dashed var(--color-ink);
+  border-radius: 16px;
+  background: rgba(255, 249, 221, 0.7);
+}
+
+.internsNote p {
+  color: var(--color-ink-soft);
+  line-height: 1.5;
+}
+
 .rankingItem {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr) auto;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
   padding: 16px;
   border: 1.5px solid var(--color-ink);
@@ -162,6 +202,12 @@
 
 .rankingItem:nth-child(odd) {
   background: var(--color-white);
+}
+
+.rankingItemDragging {
+  opacity: 0.55;
+  z-index: 2;
+  box-shadow: 10px 10px 0 var(--color-yellow);
 }
 
 .rankNumber {
@@ -189,9 +235,22 @@
   flex-shrink: 0;
 }
 
+.headshotPlaceholder {
+  width: 56px;
+  height: 56px;
+}
+
 .playerBlock {
   display: grid;
   gap: 4px;
+}
+
+.dragHint {
+  color: var(--color-ink-soft);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .playerBlock strong {
@@ -206,6 +265,14 @@
   font-weight: 500;
 }
 
+.internsAverage {
+  color: var(--color-ink-soft);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  opacity: 0.82;
+}
+
 .controls,
 .buttonRow {
   display: flex;
@@ -213,10 +280,42 @@
   gap: 8px;
 }
 
+.dragHandle {
+  display: grid;
+  gap: 4px;
+}
+
+.dragHandle span {
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--color-ink);
+}
+
+.dragHandleButton {
+  padding: 8px 4px;
+  border: 0;
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.dragHandleButton:active {
+  cursor: grabbing;
+}
+
 .modeToggle {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+  width: min(100%, 540px);
+  padding: 8px;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 249, 221, 0.96));
+  box-shadow: 4px 4px 0 var(--color-yellow);
 }
 
 .controlButton,
@@ -267,6 +366,37 @@
   background: var(--color-yellow-soft);
 }
 
+.modeButton {
+  width: 100%;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  padding: 10px 18px;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.modeButton:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 200, 0, 0.18);
+}
+
+.modeButtonActive {
+  border-color: var(--color-ink);
+  background: var(--color-yellow);
+  box-shadow: 3px 3px 0 var(--color-ink);
+}
+
 .primaryButton {
   border: 1.5px solid var(--color-ink);
   background: var(--color-yellow);
@@ -315,7 +445,8 @@
 }
 
 .blindSetup,
-.blindBoard {
+.blindBoard,
+.bracketBoard {
   display: grid;
   gap: 18px;
 }
@@ -408,6 +539,139 @@
   box-shadow: 4px 4px 0 var(--color-ink);
 }
 
+.bracketBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(255, 200, 0, 0.5), rgba(255, 255, 255, 0.96)),
+    var(--color-white);
+  box-shadow: 6px 6px 0 var(--color-yellow);
+}
+
+.bracketBanner > div {
+  display: grid;
+  gap: 8px;
+}
+
+.bracketBanner strong {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  font-weight: 400;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.bracketBanner span:last-child {
+  color: var(--color-ink-soft);
+  line-height: 1.5;
+}
+
+.bracketGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(180px, 1fr));
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.bracketRound {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 180px;
+  min-height: 100%;
+}
+
+.bracketRoundTitle {
+  padding: 8px 12px;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 999px;
+  background: var(--color-white);
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 0.84rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.bracketMatches {
+  display: grid;
+  grid-template-rows: repeat(160, 10px);
+  gap: 0;
+  min-height: 1600px;
+}
+
+.bracketMatch {
+  display: grid;
+  align-items: center;
+}
+
+.bracketMatchCard {
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 12px;
+  background: var(--color-off-white);
+}
+
+.bracketMatchLocked {
+  background: #f7f7f7;
+}
+
+.bracketSlot {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 6px 9px;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 9px;
+  background: var(--color-white);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.bracketSlot:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: var(--color-yellow-soft);
+}
+
+.bracketSlot:disabled {
+  cursor: not-allowed;
+}
+
+.bracketSlotPicked {
+  background: var(--color-yellow);
+  box-shadow: 3px 3px 0 var(--color-ink);
+}
+
+.bracketSlotEliminated {
+  opacity: 0.55;
+}
+
+.bracketSeed {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.bracketName {
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
 .shareModal {
   position: fixed;
   inset: 0;
@@ -427,7 +691,8 @@
   padding: 24px;
   display: grid;
   gap: 18px;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   box-shadow: 10px 10px 0 var(--color-yellow);
 }
 
@@ -631,38 +896,6 @@
   flex-wrap: wrap;
 }
 
-.exportHost {
-  position: fixed;
-  left: -12000px;
-  top: 0;
-  pointer-events: none;
-  z-index: -1;
-}
-
-.variantToggle {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.variantButton {
-  flex: 1;
-  border-radius: 999px;
-  padding: 10px 14px;
-  border: 1px solid rgba(148, 163, 184, 0.24);
-  background: rgba(15, 23, 42, 0.6);
-  color: #f8fafc;
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.variantButtonActive {
-  border-color: transparent;
-  background: linear-gradient(135deg, #60a5fa, #2563eb);
-  color: #eff6ff;
-}
-
 @media (max-width: 980px) {
   .shareGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -678,22 +911,100 @@
     padding-inline: 14px;
   }
 
+  .heroTop {
+    grid-template-columns: 1fr;
+  }
+
+  .heroArtWrap {
+    justify-content: center;
+  }
+
+  .heroArt {
+    transform: none;
+  }
+
   .panel {
     padding: 18px;
   }
 
-  .rankingItem,
   .panelHeader {
     grid-template-columns: 1fr;
     display: grid;
   }
 
-  .panelActions {
-    justify-items: start;
+  .rankingItem {
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .rankNumber,
+  .headshot {
+    width: 44px;
+    height: 44px;
+  }
+
+  .playerBlock {
+    min-width: 0;
+  }
+
+  .playerBlock strong {
+    font-size: 0.95rem;
+    line-height: 1.1;
+  }
+
+  .playerBlock span {
+    font-size: 0.8rem;
   }
 
   .controls {
+    flex-wrap: nowrap;
+    gap: 6px;
     justify-content: flex-start;
+    justify-self: end;
+  }
+
+  .controlButton {
+    padding: 8px 12px;
+    font-size: 0.95rem;
+  }
+
+  .dragHandle {
+    gap: 3px;
+    padding-inline: 0;
+  }
+
+  .dragHandle span {
+    width: 14px;
+  }
+
+  .modeToggle {
+    width: 100%;
+  }
+
+  .bracketBanner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .bracketGrid {
+    grid-template-columns: 1fr;
+    overflow-x: visible;
+  }
+
+  .bracketRound {
+    min-width: 0;
+  }
+
+  .bracketMatches {
+    display: grid;
+    grid-template-rows: none;
+    gap: 12px;
+    min-height: 0;
+  }
+
+  .bracketMatch {
+    grid-row: auto !important;
   }
 
   .shareModalContent {
@@ -711,6 +1022,13 @@
 
   .shareFooter {
     flex-direction: column;
+  }
+}
+
+@media (max-width: 560px) {
+  .modeToggle {
+    grid-template-columns: 1fr;
+    border-radius: 28px;
   }
 }
 

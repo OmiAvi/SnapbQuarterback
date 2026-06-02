@@ -1,11 +1,9 @@
 "use client";
 
 import { forwardRef } from "react";
-import type { TakeMetrics } from "../lib/consensus";
+import { getHeatLabel, type TakeMetrics } from "./lib/consensus";
 import PlayerAvatar from "./player-avatar";
-import TakeHeatCard from "./take-heat-card";
-import type { Quarterback } from "./lib/quarterbacks";
-import { TEAM_COLORS } from "../lib/team-colors";
+import { TEAM_COLORS, type Quarterback } from "./lib/quarterbacks";
 import styles from "./share-card.module.css";
 
 export type ShareCardVariant = "top5" | "full";
@@ -23,21 +21,27 @@ const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function ShareCard(
   { ranking, quarterbackMap, variant, hostname, takeMetrics, submissionCount },
   ref,
 ) {
-  const getQuarterback = (id: string) => quarterbackMap.get(id);
-  const qb1 = getQuarterback(ranking[0] ?? "");
+  const qb1 = quarterbackMap.get(ranking[0] ?? "");
   const qb1Accent = qb1 ? (TEAM_COLORS[qb1.team] ?? "#2563eb") : "#2563eb";
 
-  const heatPanel =
-    takeMetrics ? (
-      <div className={styles.shareHeat}>
-        <TakeHeatCard
-          quarterbackMap={quarterbackMap}
-          submissionCount={submissionCount}
-          takeMetrics={takeMetrics}
-          variant="export"
-        />
+  const heatPanel = takeMetrics ? (
+    <div className={styles.heatPanel}>
+      <div className={styles.heatScoreWrap}>
+        <span className={styles.heatScore}>{takeMetrics.takeHeat}°</span>
+        <span className={styles.heatLabel}>{getHeatLabel(takeMetrics.takeHeat)} take</span>
       </div>
-    ) : null;
+      <div className={styles.heatMeta}>
+        <strong>{takeMetrics.fanMatchPercent}% fan match</strong>
+        <span>vs {submissionCount.toLocaleString()} community boards</span>
+        {takeMetrics.hottestPick ? (
+          <span className={styles.hotCallout}>
+            Spiciest: {takeMetrics.hottestPick.player} #{takeMetrics.hottestPick.yourRank} (fans avg #
+            {takeMetrics.hottestPick.fanAvgRank})
+          </span>
+        ) : null}
+      </div>
+    </div>
+  ) : null;
 
   if (variant === "top5") {
     const topFive = ranking.slice(0, 5);
@@ -75,17 +79,15 @@ const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function ShareCard(
 
           <ol className={styles.topList}>
             {topFive.slice(1).map((id, index) => {
-              const quarterback = getQuarterback(id);
+              const quarterback = quarterbackMap.get(id);
 
               if (!quarterback) {
                 return null;
               }
 
-              const rank = index + 2;
-
               return (
                 <li className={styles.topRow} key={quarterback.id}>
-                  <span className={styles.rankPill}>{rank}</span>
+                  <span className={styles.rankPill}>{index + 2}</span>
                   <PlayerAvatar quarterback={quarterback} size="lg" />
                   <span className={styles.playerName}>{quarterback.player}</span>
                   <span className={styles.teamAbbr}>{quarterback.team}</span>
@@ -130,7 +132,7 @@ const ShareCard = forwardRef<HTMLDivElement, ShareCardProps>(function ShareCard(
         {[leftColumn, rightColumn].map((column, columnIndex) => (
           <div className={styles.fullColumn} key={columnIndex === 0 ? "left" : "right"}>
             {column.map((id, index) => {
-              const quarterback = getQuarterback(id);
+              const quarterback = quarterbackMap.get(id);
 
               if (!quarterback) {
                 return null;
