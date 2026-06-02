@@ -795,6 +795,7 @@
 }
 
 .sharePreview {
+  position: relative;
   width: 1120px;
   min-width: 1120px;
   max-width: 1120px;
@@ -808,6 +809,20 @@
   display: grid;
   gap: clamp(10px, 1.2vw, 16px);
   border: 1.5px solid var(--color-ink);
+}
+
+.shareCapMark {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  width: 60px;
+  height: 38px;
+  object-fit: cover;
+  object-position: right center;
+  z-index: 0;
+  opacity: 0.96;
+  pointer-events: none;
 }
 
 .sharePreviewDesktop {
@@ -845,8 +860,11 @@
   justify-content: space-between;
   gap: 16px;
   align-items: flex-start;
+  position: relative;
+  z-index: 1;
   border-bottom: 1.5px solid var(--color-ink);
   padding-bottom: clamp(8px, 1vw, 14px);
+  padding-right: 56px;
 }
 
 .sharePreviewHeader h3 {
@@ -862,6 +880,7 @@
   max-width: 340px;
   display: grid;
   gap: 6px;
+  margin-right: 52px;
   padding: 10px 12px;
   border: 1.5px solid var(--color-ink);
   border-radius: 14px;
@@ -906,6 +925,7 @@
   display: grid;
   gap: 10px;
   justify-items: end;
+  margin-right: 52px;
 }
 
 .shareChampionCard {

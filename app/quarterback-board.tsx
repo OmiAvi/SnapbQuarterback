@@ -19,7 +19,7 @@ import { CSS } from "@dnd-kit/utilities";
 import html2canvas from "html2canvas";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import styles from "./page.module.css";
-import type { Quarterback } from "./lib/quarterbacks";
+import { getHeadshotPath, type Quarterback } from "./lib/quarterbacks";
 
 function encodeRanking(ranking: string[]) {
   return ranking.join(".");
@@ -55,6 +55,30 @@ function shuffle<T>(input: T[]) {
   }
 
   return result;
+}
+
+async function waitForImages(node: ParentNode) {
+  const images = Array.from(node.querySelectorAll("img"));
+
+  await Promise.all(
+    images.map(
+      (image) =>
+        new Promise<void>((resolve) => {
+          if (image.complete && image.naturalWidth > 0) {
+            resolve();
+            return;
+          }
+
+          image.addEventListener("load", () => resolve(), { once: true });
+          image.addEventListener("error", () => resolve(), { once: true });
+        }),
+    ),
+  );
+}
+
+function ShareCapMark() {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img alt="" aria-hidden="true" className={styles.shareCapMark} src="/Icon-Yellow.png" />;
 }
 
 const BLIND_COUNT_OPTIONS = [10, 15, 32] as const;
@@ -197,7 +221,7 @@ function SortableRankingItem({
         <img
           alt={quarterback.player}
           className={styles.headshot}
-          src={`https://a.espncdn.com/i/headshots/nfl/players/full/${quarterback.espnPlayerId}.png`}
+          src={getHeadshotPath(quarterback.id, quarterback.playerEspnId ?? quarterback.espnPlayerId)}
         />
       ) : (
         <div className={styles.headshotPlaceholder} />
@@ -778,11 +802,11 @@ export default function QuarterbackBoard({
             <div className={styles.rankNumber}>{index + 1}</div>
             {quarterback.espnPlayerId ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                alt={quarterback.player}
-                className={styles.headshot}
-                src={`https://a.espncdn.com/i/headshots/nfl/players/full/${quarterback.espnPlayerId}.png`}
-              />
+                <img
+                  alt={quarterback.player}
+                  className={styles.headshot}
+                  src={getHeadshotPath(quarterback.id, quarterback.playerEspnId ?? quarterback.espnPlayerId)}
+                />
             ) : (
               <div className={styles.headshotPlaceholder} />
             )}
@@ -823,17 +847,27 @@ export default function QuarterbackBoard({
       throw new Error("not-ready");
     }
 
+    await waitForImages(shareCaptureRef.current);
+
     const canvas = await html2canvas(shareCaptureRef.current, {
       backgroundColor: "#f8fbff",
       scale: window.devicePixelRatio > 1 ? 2 : 1,
+      imageTimeout: 0,
+      useCORS: true,
       width: 1120,
       windowWidth: 1400,
       windowHeight: 1800,
       scrollX: 0,
       scrollY: 0,
-      onclone: (documentClone) => {
+      onclone: async (documentClone) => {
         documentClone.documentElement.style.width = "1400px";
         documentClone.body.style.width = "1400px";
+
+        const clonedCaptureRoot = documentClone.querySelector('[data-share-capture-root="true"]');
+
+        if (clonedCaptureRoot) {
+          await waitForImages(clonedCaptureRoot);
+        }
       },
     });
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve));
@@ -924,13 +958,13 @@ export default function QuarterbackBoard({
             onChange={(event) => setSelectedScenario(event.target.value)}
             value={selectedScenario}
           >
+            <option value={CUSTOM_SCENARIO_VALUE}>Write your own</option>
             <option value={NO_SCENARIO_VALUE}>No scenario selected</option>
             {SCENARIO_OPTIONS.map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
             ))}
-            <option value={CUSTOM_SCENARIO_VALUE}>Write your own</option>
           </select>
           {selectedScenario === CUSTOM_SCENARIO_VALUE ? (
             <input
@@ -946,13 +980,21 @@ export default function QuarterbackBoard({
     </>
   );
 
-  const renderRankingSharePreview = (ref: React.RefObject<HTMLDivElement | null>) => (
-    <div className={`${styles.sharePreview} ${styles.sharePreviewDesktop}`} ref={ref}>
+  const renderRankingSharePreview = (
+    ref: React.RefObject<HTMLDivElement | null>,
+    options?: { captureRoot?: boolean },
+  ) => (
+    <div
+      className={`${styles.sharePreview} ${styles.sharePreviewDesktop}`}
+      data-share-capture-root={options?.captureRoot ? "true" : undefined}
+      ref={ref}
+    >
       <header className={styles.sharePreviewHeader}>
         <div>
           <h3>{isSharingBlindMode ? "Blind QB ranking" : "Your QB ranking"}</h3>
           <p className={styles.shareSubcopy}>Saved on {new Date().toLocaleDateString()}</p>
         </div>
+        <ShareCapMark />
         {!isSharingBlindMode && activeScenario ? (
           <div className={styles.shareScenario}>
             <span>Scenario</span>
@@ -975,7 +1017,7 @@ export default function QuarterbackBoard({
                     <img
                       alt={quarterback.player}
                       className={styles.shareHeadshot}
-                      src={`https://a.espncdn.com/i/headshots/nfl/players/full/${quarterback.espnPlayerId}.png`}
+                      src={getHeadshotPath(quarterback.id, quarterback.playerEspnId ?? quarterback.espnPlayerId)}
                     />
                   ) : (
                     <div className={styles.shareHeadshotPlaceholder} />
@@ -998,9 +1040,13 @@ export default function QuarterbackBoard({
     </div>
   );
 
-  const renderBracketSharePreview = (ref: React.RefObject<HTMLDivElement | null>) => (
+  const renderBracketSharePreview = (
+    ref: React.RefObject<HTMLDivElement | null>,
+    options?: { captureRoot?: boolean },
+  ) => (
     <div
       className={`${styles.sharePreview} ${styles.sharePreviewDesktop} ${styles.shareBracketPreview}`}
+      data-share-capture-root={options?.captureRoot ? "true" : undefined}
       ref={ref}
     >
       <header className={styles.sharePreviewHeader}>
@@ -1008,6 +1054,7 @@ export default function QuarterbackBoard({
           <h3>Your QB bracket</h3>
           <p className={styles.shareSubcopy}>Saved on {new Date().toLocaleDateString()}</p>
         </div>
+        <ShareCapMark />
         <div className={styles.shareBracketHeaderAside}>
           {activeScenario ? (
             <div className={styles.shareScenario}>
@@ -1055,7 +1102,7 @@ export default function QuarterbackBoard({
                   <img
                     alt={quarterback.player}
                     className={styles.shareBracketNodeHeadshot}
-                    src={`https://a.espncdn.com/i/headshots/nfl/players/full/${quarterback.espnPlayerId}.png`}
+                    src={getHeadshotPath(quarterback.id, quarterback.playerEspnId ?? quarterback.espnPlayerId)}
                   />
                 ) : (
                   <div className={styles.shareBracketNodePlaceholder} />
@@ -1087,7 +1134,7 @@ export default function QuarterbackBoard({
                 <img
                   alt={quarterback.player}
                   className={styles.shareBracketNodeHeadshot}
-                  src={`https://a.espncdn.com/i/headshots/nfl/players/full/${quarterback.espnPlayerId}.png`}
+                  src={getHeadshotPath(quarterback.id, quarterback.playerEspnId ?? quarterback.espnPlayerId)}
                 />
               ) : (
                 <div className={styles.shareBracketNodePlaceholder} />
@@ -1105,8 +1152,8 @@ export default function QuarterbackBoard({
     </div>
   );
 
-  const renderSharePreview = (ref: React.RefObject<HTMLDivElement | null>) =>
-    isSharingBracket ? renderBracketSharePreview(ref) : renderRankingSharePreview(ref);
+  const renderSharePreview = (ref: React.RefObject<HTMLDivElement | null>, options?: { captureRoot?: boolean }) =>
+    isSharingBracket ? renderBracketSharePreview(ref, options) : renderRankingSharePreview(ref, options);
 
   return (
     <main className={styles.page}>
@@ -1430,7 +1477,7 @@ export default function QuarterbackBoard({
                         <img
                           alt={quarterback.player}
                           className={styles.headshot}
-                          src={`https://a.espncdn.com/i/headshots/nfl/players/full/${quarterback.espnPlayerId}.png`}
+                          src={getHeadshotPath(quarterback.id, quarterback.playerEspnId ?? quarterback.espnPlayerId)}
                         />
                       ) : (
                         <div className={styles.rankNumber}>{index + 1}</div>
@@ -1511,7 +1558,7 @@ export default function QuarterbackBoard({
             </div>
 
             <div className={styles.shareCaptureSurface} aria-hidden="true">
-              {renderSharePreview(shareCaptureRef)}
+              {renderSharePreview(shareCaptureRef, { captureRoot: true })}
             </div>
 
             <div className={styles.shareModalActions}>
