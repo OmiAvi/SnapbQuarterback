@@ -1,7 +1,7 @@
 :root {
   color-scheme: light;
-  --font-body: var(--font-inter), Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-display: var(--font-anton), Anton, Impact, "Arial Narrow", sans-serif;
+  --font-body: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: Impact, Haettenschweiler, "Arial Narrow Bold", "Arial Narrow", sans-serif;
   --color-yellow: #ffc800;
   --color-yellow-soft: #ffee9a;
   --color-yellow-deep: #e6b400;

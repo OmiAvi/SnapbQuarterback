@@ -1,4 +1,4 @@
-import { toPng } from "html-to-image";
+import html2canvas from "html2canvas";
 
 async function waitForImages(node: HTMLElement) {
   const images = Array.from(node.querySelectorAll("img"));
@@ -22,10 +22,12 @@ async function waitForImages(node: HTMLElement) {
 export async function captureCardPng(node: HTMLElement) {
   await waitForImages(node);
 
-  return toPng(node, {
-    pixelRatio: 2,
-    cacheBust: true,
+  const canvas = await html2canvas(node, {
+    backgroundColor: "#f8fbff",
+    scale: 2,
   });
+
+  return canvas.toDataURL("image/png");
 }
 
 export async function downloadCardPng(node: HTMLElement, filename: string) {

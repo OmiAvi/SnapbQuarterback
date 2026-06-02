@@ -52,6 +52,8 @@ export const QUARTERBACKS: Quarterback[] = [
   { id: "wsh", espnId: "28", team: "WSH", teamName: "Washington Commanders", player: "Jayden Daniels", conference: "NFC" },
 ];
 
+export const DEFAULT_RANKING = QUARTERBACKS.map((quarterback) => quarterback.id);
+
 export const QUARTERBACK_MAP = new Map(QUARTERBACKS.map((quarterback) => [quarterback.id, quarterback]));
 
 export const TEAM_COLORS: Record<string, string> = {
