@@ -725,11 +725,30 @@
 .shareStage {
   overflow: auto;
   padding: 4px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.sharePreviewScaler {
+  flex: 0 0 auto;
+  transform-origin: top center;
+}
+
+.shareCaptureSurface {
+  position: fixed;
+  left: -99999px;
+  top: 0;
+  width: 1120px;
+  height: auto;
+  pointer-events: none;
+  opacity: 0;
 }
 
 .sharePreview {
-  width: min(100%, 1120px);
-  min-width: 280px;
+  width: 1120px;
+  min-width: 1120px;
+  max-width: 1120px;
   margin: 0 auto;
   border-radius: 20px;
   background:
@@ -740,6 +759,42 @@
   display: grid;
   gap: clamp(10px, 1.2vw, 16px);
   border: 1.5px solid var(--color-ink);
+}
+
+.sharePreviewDesktop {
+  width: 1120px;
+  min-width: 1120px;
+  max-width: 1120px;
+}
+
+.sharePreviewDesktop .sharePreviewHeader {
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+}
+
+.sharePreviewDesktop .shareHighlights {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+
+.sharePreviewDesktop .shareGrid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+
+.sharePreviewDesktop .shareGridBlind {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+.sharePreviewDesktop .shareFooter {
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: space-between !important;
+  align-items: center !important;
 }
 
 .sharePreviewHeader {
@@ -896,16 +951,6 @@
   flex-wrap: wrap;
 }
 
-@media (max-width: 980px) {
-  .shareGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .shareGridBlind {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 720px) {
   .page {
     padding-inline: 14px;
@@ -1010,30 +1055,11 @@
   .shareModalContent {
     padding: 18px;
   }
-
-  .sharePreviewHeader {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .shareHighlights {
-    grid-template-columns: 1fr;
-  }
-
-  .shareFooter {
-    flex-direction: column;
-  }
 }
 
 @media (max-width: 560px) {
   .modeToggle {
     grid-template-columns: 1fr;
     border-radius: 28px;
-  }
-}
-
-@media (max-width: 640px) {
-  .shareGrid {
-    grid-template-columns: 1fr;
   }
 }

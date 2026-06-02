@@ -246,7 +246,10 @@ export default function QuarterbackBoard({
   );
   const [shareViewOpen, setShareViewOpen] = useState(false);
   const [shareMessage, setShareMessage] = useState("");
+  const [sharePreviewScale, setSharePreviewScale] = useState(1);
+  const shareStageRef = useRef<HTMLDivElement | null>(null);
   const sharePreviewRef = useRef<HTMLDivElement | null>(null);
+  const shareCaptureRef = useRef<HTMLDivElement | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
@@ -278,6 +281,36 @@ export default function QuarterbackBoard({
     const timeout = window.setTimeout(() => setShareMessage(""), 2000);
     return () => window.clearTimeout(timeout);
   }, [shareMessage]);
+
+  useEffect(() => {
+    const stage = shareStageRef.current;
+
+    if (!stage || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const updateScale = () => {
+      const availableWidth = stage.clientWidth - 8;
+      const nextScale = Math.min(1, Math.max(0.28, availableWidth / 1120));
+      setSharePreviewScale(Number(nextScale.toFixed(3)));
+    };
+
+    updateScale();
+
+    const observer = new ResizeObserver(() => updateScale());
+    observer.observe(stage);
+
+    return () => observer.disconnect();
+  }, [shareViewOpen]);
+
+  const canShareImageFile = useMemo(() => {
+    if (!isMounted || typeof navigator === "undefined" || !navigator.share || !navigator.canShare) {
+      return false;
+    }
+
+    const testFile = new File(["snapquarterback"], "snapquarterback-board.png", { type: "image/png" });
+    return navigator.canShare({ files: [testFile] });
+  }, [isMounted]);
 
   const topFive = ranking.slice(0, 5).map((id) => quarterbackMap.get(id)?.player ?? id);
   const placedCount = blindSlots.filter(Boolean).length;
@@ -525,27 +558,57 @@ export default function QuarterbackBoard({
     }
   };
 
-  const downloadShareImage = async () => {
-    if (!sharePreviewRef.current) {
-      setShareMessage("Share view not ready yet.");
-      return;
+  const captureShareImageBlob = async () => {
+    if (!shareCaptureRef.current) {
+      throw new Error("not-ready");
     }
 
-    try {
-      const canvas = await html2canvas(sharePreviewRef.current, {
-        backgroundColor: "#f8fbff",
-        scale: window.devicePixelRatio > 1 ? 2 : 1,
-      });
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve));
+    const canvas = await html2canvas(shareCaptureRef.current, {
+      backgroundColor: "#f8fbff",
+      scale: window.devicePixelRatio > 1 ? 2 : 1,
+      width: 1120,
+      windowWidth: 1400,
+      windowHeight: 1800,
+      scrollX: 0,
+      scrollY: 0,
+      onclone: (documentClone) => {
+        documentClone.documentElement.style.width = "1400px";
+        documentClone.body.style.width = "1400px";
+      },
+    });
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve));
 
-      if (!blob) {
-        throw new Error("no-blob");
+    if (!blob) {
+      throw new Error("no-blob");
+    }
+
+    return blob;
+  };
+
+  const downloadShareImage = async () => {
+    try {
+      const blob = await captureShareImageBlob();
+      const file = new File([blob], "snapquarterback-board.png", { type: "image/png" });
+
+      if (
+        canShareImageFile &&
+        typeof navigator !== "undefined" &&
+        navigator.share &&
+        navigator.canShare?.({ files: [file] })
+      ) {
+        await navigator.share({
+          title: "SnapbQuarterback board",
+          text: "Save or share my QB rankings image.",
+          files: [file],
+        });
+        setShareMessage("Image ready to save.");
+        return;
       }
 
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "snapbquarterback-board.png";
+      link.download = "snapquarterback-board.png";
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -576,6 +639,66 @@ export default function QuarterbackBoard({
 
     await copyValue(shareUrl, "Link");
   };
+
+  const renderSharePreview = (ref: React.RefObject<HTMLDivElement | null>) => (
+    <div className={`${styles.sharePreview} ${styles.sharePreviewDesktop}`} ref={ref}>
+      <header className={styles.sharePreviewHeader}>
+        <div>
+          <p className={styles.shareEyebrow}>SnapQuarterback</p>
+          <h3>{isSharingBlindResult ? "Blind QB ranking" : "Your QB ranking"}</h3>
+          <p className={styles.shareSubcopy}>Saved on {new Date().toLocaleDateString()}</p>
+        </div>
+      </header>
+
+      <div className={styles.shareHighlights}>
+        <article className={styles.shareHighlightCard}>
+          <span>{isSharingBlindResult ? "Blind QB1" : "QB1"}</span>
+          <strong>{quarterbackMap.get(exportRanking[0])?.player}</strong>
+          <p>{quarterbackMap.get(exportRanking[0])?.teamName}</p>
+        </article>
+        <article className={styles.shareHighlightCard}>
+          <span>Top 5</span>
+          <strong>{exportTopPlayers.join(", ")}</strong>
+          <p>{isSharingBlindResult ? "Locked in from your blind round" : "Headliners from this board"}</p>
+        </article>
+        <article className={styles.shareHighlightCard}>
+          <span>{isSharingBlindResult ? "Round" : "Format"}</span>
+          <strong>{isSharingBlindResult ? `Blind top ${exportRanking.length}` : "1 through 32"}</strong>
+          <p>{isSharingBlindResult ? "Final placements with no take-backs" : "All current starters in one frame"}</p>
+        </article>
+      </div>
+
+      <div className={`${styles.shareGrid} ${isSharingBlindResult ? styles.shareGridBlind : ""}`}>
+        {exportColumns.map((column, columnIndex) => (
+          <div className={styles.shareColumn} key={`share-column-${columnIndex}`}>
+            {column.map((id) => {
+              const quarterback = quarterbackMap.get(id);
+
+              if (!quarterback) {
+                return null;
+              }
+
+              return (
+                <div className={styles.shareRow} key={`share-${quarterback.id}`}>
+                  <span className={styles.shareRank}>{exportPlacements[id]}</span>
+                  <div className={styles.sharePlayer}>
+                    <strong>{quarterback.player}</strong>
+                    <span>{quarterback.team}</span>
+                  </div>
+                  <span className={styles.shareConference}>{quarterback.conference}</span>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+
+      <footer className={styles.shareFooter}>
+        <span>snapquarterback</span>
+        <span>Build yours. Save it. Debate it.</span>
+      </footer>
+    </div>
+  );
 
   return (
     <main className={styles.page}>
@@ -909,69 +1032,19 @@ export default function QuarterbackBoard({
               </div>
             </div>
 
-            <div className={styles.shareStage}>
-              <div className={styles.sharePreview} ref={sharePreviewRef}>
-                <header className={styles.sharePreviewHeader}>
-                  <div>
-                    <p className={styles.shareEyebrow}>SnapbQuarterback</p>
-                    <h3>{isSharingBlindResult ? "Blind QB ranking" : "Your QB ranking"}</h3>
-                    <p className={styles.shareSubcopy}>Saved on {new Date().toLocaleDateString()}</p>
-                  </div>
-                </header>
-
-                <div className={styles.shareHighlights}>
-                  <article className={styles.shareHighlightCard}>
-                    <span>{isSharingBlindResult ? "Blind QB1" : "QB1"}</span>
-                    <strong>{quarterbackMap.get(exportRanking[0])?.player}</strong>
-                    <p>{quarterbackMap.get(exportRanking[0])?.teamName}</p>
-                  </article>
-                  <article className={styles.shareHighlightCard}>
-                    <span>Top 5</span>
-                    <strong>{exportTopPlayers.join(", ")}</strong>
-                    <p>{isSharingBlindResult ? "Locked in from your blind round" : "Headliners from this board"}</p>
-                  </article>
-                  <article className={styles.shareHighlightCard}>
-                    <span>{isSharingBlindResult ? "Round" : "Format"}</span>
-                    <strong>{isSharingBlindResult ? `Blind top ${exportRanking.length}` : "1 through 32"}</strong>
-                    <p>{isSharingBlindResult ? "Final placements with no take-backs" : "All current starters in one frame"}</p>
-                  </article>
-                </div>
-
-                <div className={`${styles.shareGrid} ${isSharingBlindResult ? styles.shareGridBlind : ""}`}>
-                  {exportColumns.map((column, columnIndex) => (
-                    <div className={styles.shareColumn} key={`share-column-${columnIndex}`}>
-                      {column.map((id) => {
-                        const quarterback = quarterbackMap.get(id);
-
-                        if (!quarterback) {
-                          return null;
-                        }
-
-                        return (
-                          <div className={styles.shareRow} key={`share-${quarterback.id}`}>
-                            <span className={styles.shareRank}>{exportPlacements[id]}</span>
-                            <div className={styles.sharePlayer}>
-                              <strong>{quarterback.player}</strong>
-                              <span>{quarterback.team}</span>
-                            </div>
-                            <span className={styles.shareConference}>{quarterback.conference}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-
-                <footer className={styles.shareFooter}>
-                  <span>snapbquarterback</span>
-                  <span>Build yours. Save it. Debate it.</span>
-                </footer>
+            <div className={styles.shareStage} ref={shareStageRef}>
+              <div className={styles.sharePreviewScaler} style={{ zoom: sharePreviewScale }}>
+                {renderSharePreview(sharePreviewRef)}
               </div>
+            </div>
+
+            <div className={styles.shareCaptureSurface} aria-hidden="true">
+              {renderSharePreview(shareCaptureRef)}
             </div>
 
             <div className={styles.shareModalActions}>
               <button className={styles.primaryButton} onClick={downloadShareImage} type="button">
-                Download PNG
+                {canShareImageFile ? "Save image" : "Download PNG"}
               </button>
               <button className={styles.secondaryButton} onClick={() => setShareViewOpen(false)} type="button">
                 Close
