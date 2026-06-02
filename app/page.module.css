@@ -45,7 +45,7 @@
 .hero h1 {
   max-width: 14ch;
   font-family: var(--font-display);
-  font-size: clamp(2.7rem, 7vw, 5rem);
+  font-size: clamp(2.45rem, 6.1vw, 4.3rem);
   font-weight: 400;
   line-height: 0.92;
   letter-spacing: -0.005em;
@@ -71,14 +71,8 @@
   width: min(100%, 1000px);
   height: auto;
   display: block;
-  transform: translateY(-65px);
+  transform: translateY(-32px);
   filter: drop-shadow(0 18px 28px rgba(10, 10, 10, 0.16));
-}
-
-.summaryGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 16px;
 }
 
 .card,
@@ -123,36 +117,30 @@
 }
 
 .panelHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+  display: grid;
+  justify-items: center;
   margin-bottom: 20px;
-}
-
-.panelHeader h2 {
-  margin-bottom: 8px;
-  font-family: var(--font-display);
-  font-size: 1.7rem;
-  font-weight: 400;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--color-ink);
-}
-
-.panelHeader p {
-  color: var(--color-ink-soft);
-  line-height: 1.6;
 }
 
 .panelActions {
   display: grid;
   justify-items: center;
   gap: 10px;
+  width: min(100%, 540px);
 }
 
-.panelActions .buttonRow {
-  justify-content: center;
+.panelShareRow {
+  display: grid;
+  width: 100%;
+  justify-items: center;
+  gap: 8px;
+}
+
+.shareModeNote {
+  color: var(--color-ink-soft);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  text-align: center;
 }
 
 .copyMessage {
@@ -175,18 +163,41 @@
   gap: 16px;
 }
 
-.internsNote {
+.scenarioCard {
   display: grid;
-  gap: 6px;
-  padding: 14px 16px;
-  border: 1.5px dashed var(--color-ink);
-  border-radius: 16px;
-  background: rgba(255, 249, 221, 0.7);
+  gap: 12px;
+  padding: 18px;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 18px;
+  background: rgba(255, 249, 221, 0.82);
 }
 
-.internsNote p {
+.scenarioHeader {
+  display: grid;
+  gap: 6px;
+}
+
+.scenarioHeader p {
   color: var(--color-ink-soft);
   line-height: 1.5;
+}
+
+.scenarioSelect,
+.scenarioInput {
+  width: 100%;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 14px;
+  background: var(--color-white);
+  color: var(--color-ink);
+  padding: 12px 14px;
+  font: inherit;
+}
+
+.scenarioSelect:focus,
+.scenarioInput:focus {
+  outline: none;
+  background: #fffdf2;
+  box-shadow: 0 0 0 3px var(--color-yellow);
 }
 
 .rankingItem {
@@ -473,6 +484,18 @@
   box-shadow: 6px 6px 0 var(--color-yellow);
 }
 
+.currentCardHeader {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+}
+
+.currentCardContent {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
 .currentCard strong {
   font-family: var(--font-display);
   font-size: clamp(1.8rem, 4vw, 2.4rem);
@@ -539,7 +562,7 @@
   box-shadow: 4px 4px 0 var(--color-ink);
 }
 
-.bracketBanner {
+.modeBanner {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -553,12 +576,12 @@
   box-shadow: 6px 6px 0 var(--color-yellow);
 }
 
-.bracketBanner > div {
+.modeBanner > div:first-child {
   display: grid;
   gap: 8px;
 }
 
-.bracketBanner strong {
+.modeBanner strong {
   font-family: var(--font-display);
   font-size: clamp(1.8rem, 4vw, 2.5rem);
   font-weight: 400;
@@ -566,22 +589,32 @@
   text-transform: uppercase;
 }
 
-.bracketBanner span:last-child {
+.modeBanner span:last-child {
   color: var(--color-ink-soft);
   line-height: 1.5;
+}
+
+.modeBannerActions {
+  display: grid;
+  gap: 10px;
+  justify-items: stretch;
+}
+
+.modeBannerActionsCentered {
+  justify-items: center;
 }
 
 .bracketGrid {
   display: grid;
   grid-template-columns: repeat(5, minmax(180px, 1fr));
-  gap: 12px;
+  gap: 16px;
   overflow-x: auto;
   padding-bottom: 8px;
 }
 
 .bracketRound {
   display: grid;
-  gap: 10px;
+  gap: 14px;
   align-content: start;
   min-width: 180px;
   min-height: 100%;
@@ -601,27 +634,30 @@
 
 .bracketMatches {
   display: grid;
-  grid-template-rows: repeat(160, 10px);
+  grid-template-rows: repeat(160, 12px);
   gap: 0;
-  min-height: 1600px;
+  min-height: 1920px;
 }
 
 .bracketMatch {
   display: grid;
   align-items: center;
+  padding-block: 6px;
 }
 
 .bracketMatchCard {
   display: grid;
-  gap: 4px;
-  padding: 6px;
+  gap: 8px;
+  padding: 8px;
   border: 1.5px solid var(--color-ink);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--color-off-white);
+  box-shadow: 3px 3px 0 rgba(255, 200, 0, 0.65);
 }
 
 .bracketMatchLocked {
   background: #f7f7f7;
+  box-shadow: none;
 }
 
 .bracketSlot {
@@ -711,6 +747,19 @@
   display: grid;
 }
 
+.shareModeButton {
+  width: 100%;
+  max-width: none;
+  padding: 14px 28px;
+  font-size: 1.02rem;
+  font-weight: 800;
+  box-shadow: 5px 5px 0 var(--color-ink);
+}
+
+.shareModeButton:hover:not(:disabled) {
+  box-shadow: 6px 6px 0 var(--color-ink);
+}
+
 .shareControlsMuted .textarea {
   margin-bottom: 10px;
 }
@@ -774,12 +823,6 @@
   align-items: flex-start !important;
 }
 
-.sharePreviewDesktop .shareHighlights {
-  display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: 10px !important;
-}
-
 .sharePreviewDesktop .shareGrid {
   display: grid !important;
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
@@ -815,6 +858,34 @@
   text-transform: uppercase;
 }
 
+.shareScenario {
+  max-width: 340px;
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--color-ink);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.shareScenario span {
+  color: var(--color-ink);
+  font-size: 0.7rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-family: var(--font-display);
+}
+
+.shareScenario strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 0.96rem;
+  font-weight: 400;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
 .shareEyebrow {
   font-size: 0.82rem;
   font-weight: 400;
@@ -831,40 +902,38 @@
   font-size: 0.95rem;
 }
 
-.shareHighlights {
+.shareBracketHeaderAside {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
+  justify-items: end;
 }
 
-.shareHighlightCard {
+.shareChampionCard {
+  width: min(100%, 280px);
   display: grid;
-  gap: 4px;
+  gap: 6px;
   padding: 10px 12px;
   border: 1.5px solid var(--color-ink);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.88);
+  border-radius: 14px;
+  background: rgba(255, 196, 0, 0.22);
 }
 
-.shareHighlightCard span {
+.shareChampionCard span {
   color: var(--color-ink);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 400;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-family: var(--font-display);
 }
 
-.shareHighlightCard strong {
-  font-family: var(--font-display);
-  font-size: clamp(0.92rem, 1.05vw, 1.1rem);
-  font-weight: 400;
-  text-transform: uppercase;
-}
-
-.shareHighlightCard p {
+.shareChampionCard strong {
   color: var(--color-ink);
-  font-size: 0.8rem;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 400;
+  line-height: 1.15;
+  text-transform: uppercase;
 }
 
 .shareGrid {
@@ -885,7 +954,7 @@
 
 .shareRow {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
@@ -900,6 +969,24 @@
   font-size: 0.9rem;
   min-width: 1.25rem;
   font-family: var(--font-display);
+}
+
+.shareHeadshot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid var(--color-ink);
+  object-fit: cover;
+  object-position: top center;
+  background: var(--color-yellow);
+}
+
+.shareHeadshotPlaceholder {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(10, 10, 10, 0.2);
+  background: rgba(255, 200, 0, 0.18);
 }
 
 .sharePlayer {
@@ -920,14 +1007,80 @@
   letter-spacing: 0.04em;
 }
 
-.shareConference {
-  font-size: 0.66rem;
-  font-weight: 700;
+.shareBracketTree {
+  position: relative;
+  width: 1068px;
+  height: 610px;
+  margin: 0 auto;
+}
+
+.shareBracketSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.shareBracketPath {
+  fill: none;
+  stroke: rgba(10, 10, 10, 0.6);
+  stroke-width: 1.6;
+  stroke-linecap: square;
+}
+
+.shareBracketNode {
+  position: absolute;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 10px;
+  border: 1.5px solid var(--color-ink);
+  background: rgba(255, 255, 255, 0.96);
+  overflow: hidden;
+}
+
+.shareBracketNodePicked {
+  background: rgba(255, 196, 0, 0.24);
+  box-shadow: 3px 3px 0 rgba(10, 10, 10, 0.18);
+}
+
+.shareBracketFinalNode {
+  padding-inline: 5px;
+}
+
+.shareBracketNodeHeadshot,
+.shareBracketNodePlaceholder {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.shareBracketNodeHeadshot {
+  border: 1.5px solid var(--color-ink);
+  object-fit: cover;
+  object-position: top center;
+  background: var(--color-yellow);
+}
+
+.shareBracketNodePlaceholder {
+  border: 1.5px solid rgba(10, 10, 10, 0.18);
+  background: rgba(255, 200, 0, 0.18);
+}
+
+.shareBracketNodeName {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
   color: var(--color-ink);
-  padding: 3px 6px;
-  border-radius: 999px;
-  background: var(--color-yellow-soft);
-  border: 1px solid var(--color-ink);
+  font-size: 0.56rem;
+  line-height: 1.1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .shareFooter {
@@ -1027,9 +1180,13 @@
     width: 100%;
   }
 
-  .bracketBanner {
+  .modeBanner {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .currentCardHeader {
+    grid-template-columns: 1fr;
   }
 
   .bracketGrid {

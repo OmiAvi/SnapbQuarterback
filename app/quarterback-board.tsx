@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import html2canvas from "html2canvas";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import styles from "./page.module.css";
 import type { Quarterback } from "./lib/quarterbacks";
 
@@ -134,10 +134,41 @@ const INTERNS_AVERAGE_BY_NAME: Record<(typeof INTERNS_AVERAGE_ORDER)[number], st
   "Deshaun Watson": "29.50",
   "Jacoby Brissett": "29.83",
 };
+const CUSTOM_SCENARIO_VALUE = "__custom__";
+const NO_SCENARIO_VALUE = "";
+const SCENARIO_OPTIONS = [
+  "Down by 4 with the ball and 2 minutes left",
+  "Only able to throw with their left hand",
+  "Who would you rather have date your daughter",
+  "Based on deep ball accuracy",
+  "Based on scrambling ability only",
+  "Most likely to make the NBA",
+  "Biggest Madden cheatcode",
+  "Based on college career",
+  "Best media presence",
+  "Most likely to be broke in 10 years",
+  "Most likely to get benched this season",
+  "Most likely to choke in the playoffs",
+  "Most fun to watch",
+  "Based on who has the most to prove",
+  "Best game day outfits",
+  "Most overrated right now",
+] as const;
 
 type Mode = "classic" | "blind" | "bracket";
 type BlindStage = "setup" | "playing" | "done";
 type BracketPicks = (0 | 1 | null)[][];
+
+function createBlindRoundState(ranking: string[], count: (typeof BLIND_COUNT_OPTIONS)[number]) {
+  const [first, ...rest] = shuffle(ranking).slice(0, count);
+
+  return {
+    blindStage: first ? ("playing" as const) : ("setup" as const),
+    blindCurrent: first ?? null,
+    blindQueue: rest,
+    blindSlots: Array(count).fill(null) as (string | null)[],
+  };
+}
 
 function SortableRankingItem({
   id,
@@ -234,7 +265,7 @@ export default function QuarterbackBoard({
   const [ranking, setRanking] = useState(
     () => decodeRanking(initialRankingCode, quarterbackMap) ?? defaultRanking,
   );
-  const [mode, setMode] = useState<Mode>("classic");
+  const [mode, setMode] = useState<Mode>("blind");
   const [blindCount, setBlindCount] = useState<(typeof BLIND_COUNT_OPTIONS)[number]>(10);
   const [blindStage, setBlindStage] = useState<BlindStage>("setup");
   const [blindQueue, setBlindQueue] = useState<string[]>([]);
@@ -244,6 +275,9 @@ export default function QuarterbackBoard({
   const [bracketPicks, setBracketPicks] = useState<BracketPicks>(() =>
     BRACKET_ROUNDS.map((round) => Array(round.matches).fill(null)),
   );
+  const [selectedScenario, setSelectedScenario] = useState<string>(NO_SCENARIO_VALUE);
+  const [customScenario, setCustomScenario] = useState("");
+  const [scenarioPickerOpen, setScenarioPickerOpen] = useState(false);
   const [shareViewOpen, setShareViewOpen] = useState(false);
   const [shareMessage, setShareMessage] = useState("");
   const [sharePreviewScale, setSharePreviewScale] = useState(1);
@@ -312,31 +346,41 @@ export default function QuarterbackBoard({
     return navigator.canShare({ files: [testFile] });
   }, [isMounted]);
 
-  const topFive = ranking.slice(0, 5).map((id) => quarterbackMap.get(id)?.player ?? id);
   const placedCount = blindSlots.filter(Boolean).length;
   const blindResultRanking = useMemo(
     () => blindSlots.filter((id): id is string => Boolean(id)),
     [blindSlots],
   );
-  const blindTopFive = blindResultRanking.slice(0, 5).map((id) => quarterbackMap.get(id)?.player ?? id);
-  const isSharingBlindResult = mode === "blind" && blindStage === "done" && blindResultRanking.length > 0;
+  const isSharingBlindMode = mode === "blind";
+  const isSharingBlindResult = isSharingBlindMode && blindStage === "done" && blindResultRanking.length > 0;
+  const isSharingBracket = mode === "bracket";
+  const activeScenario =
+    selectedScenario === CUSTOM_SCENARIO_VALUE ? customScenario.trim() : selectedScenario;
   const exportRanking = isSharingBlindResult ? blindResultRanking : ranking;
-  const exportTopPlayers = isSharingBlindResult ? blindTopFive : topFive;
-  const exportPlacements = useMemo(
-    () =>
-      exportRanking.reduce<Record<string, number>>((placements, id, index) => {
-        placements[id] = index + 1;
-        return placements;
-      }, {}),
-    [exportRanking],
+  const blindShareSlots = useMemo(
+    () => (blindSlots.length > 0 ? blindSlots : Array(blindCount).fill(null)),
+    [blindCount, blindSlots],
   );
-  const exportColumns = useMemo(() => {
-    const rowsPerColumn = exportRanking.length > 16 ? 8 : Math.max(5, Math.ceil(exportRanking.length / 2));
+  const exportEntries = useMemo(() => {
+    if (isSharingBlindMode) {
+      return blindShareSlots.map((id, index) => ({
+        id,
+        placement: index + 1,
+      }));
+    }
 
-    return Array.from({ length: Math.ceil(exportRanking.length / rowsPerColumn) }, (_, columnIndex) =>
-      exportRanking.slice(columnIndex * rowsPerColumn, columnIndex * rowsPerColumn + rowsPerColumn),
+    return exportRanking.map((id, index) => ({
+      id,
+      placement: index + 1,
+    }));
+  }, [blindShareSlots, exportRanking, isSharingBlindMode]);
+  const exportColumns = useMemo(() => {
+    const rowsPerColumn = exportEntries.length > 16 ? 8 : Math.max(5, Math.ceil(exportEntries.length / 2));
+
+    return Array.from({ length: Math.ceil(exportEntries.length / rowsPerColumn) }, (_, columnIndex) =>
+      exportEntries.slice(columnIndex * rowsPerColumn, columnIndex * rowsPerColumn + rowsPerColumn),
     );
-  }, [exportRanking]);
+  }, [exportEntries]);
   const bracketChampionId = useMemo(() => {
     const finalPick = bracketPicks[BRACKET_ROUNDS.length - 1]?.[0];
 
@@ -380,14 +424,26 @@ export default function QuarterbackBoard({
     setBlindSlots([]);
   };
 
-  const startBlindRound = (count: (typeof BLIND_COUNT_OPTIONS)[number]) => {
-    const [first, ...rest] = shuffle(defaultRanking).slice(0, count);
+  const startBlindRound = useCallback((count: (typeof BLIND_COUNT_OPTIONS)[number]) => {
+    const nextRound = createBlindRoundState(defaultRanking, count);
 
-    setBlindSlots(Array(count).fill(null));
-    setBlindQueue(rest);
-    setBlindCurrent(first ?? null);
-    setBlindStage("playing");
-  };
+    setBlindSlots(nextRound.blindSlots);
+    setBlindQueue(nextRound.blindQueue);
+    setBlindCurrent(nextRound.blindCurrent);
+    setBlindStage(nextRound.blindStage);
+  }, [defaultRanking]);
+
+  useEffect(() => {
+    if (!isMounted || mode !== "blind" || blindStage !== "setup" || blindSlots.length > 0) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      startBlindRound(blindCount);
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [blindCount, blindSlots.length, blindStage, isMounted, mode, startBlindRound]);
 
   const placeBlind = (slotIndex: number) => {
     if (blindCurrent === null || blindSlots[slotIndex] !== null) {
@@ -429,20 +485,24 @@ export default function QuarterbackBoard({
       resetBlind();
     }
 
+    if (nextMode === "blind" && blindStage === "setup") {
+      startBlindRound(blindCount);
+    }
+
     if (nextMode === "bracket" && bracketSeeds.length === 0) {
       setBracketSeeds(shuffle(defaultRanking));
     }
   };
 
-  const getBracketParticipant = (roundIndex: number, matchIndex: number, side: 0 | 1): string | null => {
+  function getBracketParticipant(roundIndex: number, matchIndex: number, side: 0 | 1): string | null {
     if (roundIndex === 0) {
       return bracketSeeds[matchIndex * 2 + side] ?? null;
     }
 
     return getBracketWinner(roundIndex - 1, matchIndex * 2 + side);
-  };
+  }
 
-  const getBracketWinner = (roundIndex: number, matchIndex: number): string | null => {
+  function getBracketWinner(roundIndex: number, matchIndex: number): string | null {
     const pick = bracketPicks[roundIndex]?.[matchIndex];
 
     if (pick === null) {
@@ -450,7 +510,7 @@ export default function QuarterbackBoard({
     }
 
     return getBracketParticipant(roundIndex, matchIndex, pick);
-  };
+  }
 
   const updateBracketPick = (roundIndex: number, matchIndex: number, side: 0 | 1) => {
     setBracketPicks((currentPicks) => {
@@ -482,6 +542,206 @@ export default function QuarterbackBoard({
     });
   };
 
+  const bracketShareRounds = useMemo(
+    () => {
+      const getShareParticipant = (
+        roundIndex: number,
+        matchIndex: number,
+        side: 0 | 1,
+      ): string | null => {
+        if (roundIndex === 0) {
+          return bracketSeeds[matchIndex * 2 + side] ?? null;
+        }
+
+        return getShareWinner(roundIndex - 1, matchIndex * 2 + side);
+      };
+
+      const getShareWinner = (roundIndex: number, matchIndex: number): string | null => {
+        const pick = bracketPicks[roundIndex]?.[matchIndex];
+
+        if (pick === null) {
+          return null;
+        }
+
+        return getShareParticipant(roundIndex, matchIndex, pick);
+      };
+
+      return BRACKET_ROUNDS.map((round, roundIndex) => ({
+        ...round,
+        matches: Array.from({ length: round.matches }, (_, matchIndex) => {
+          const topId = getShareParticipant(roundIndex, matchIndex, 0);
+          const bottomId = getShareParticipant(roundIndex, matchIndex, 1);
+          const pick = bracketPicks[roundIndex]?.[matchIndex] ?? null;
+
+          return {
+            key: `${round.key}-${matchIndex}`,
+            top: topId ? quarterbackMap.get(topId) ?? null : null,
+            bottom: bottomId ? quarterbackMap.get(bottomId) ?? null : null,
+            pick,
+          };
+        }),
+      }));
+    },
+    [bracketPicks, quarterbackMap, bracketSeeds],
+  );
+  const bracketShareTree = useMemo(() => {
+    const canvasWidth = 1068;
+    const canvasHeight = 610;
+    const cardWidth = 104;
+    const cardHeight = 28;
+    const finalCardWidth = 72;
+    const finalCardHeight = 26;
+    const topOffset = 46;
+    const matchStride = 64;
+    const slotGap = 8;
+    const connectorGap = 12;
+    const leftRoundX = [8, 118, 228, 338];
+    const rightRoundX = [956, 846, 736, 626];
+    const finalLeftX = 462;
+    const finalRightX = 548;
+
+    const lines: Array<{ key: string; d: string }> = [];
+
+    const buildSide = (
+      side: "left" | "right",
+      rounds: (typeof bracketShareRounds)[number]["matches"][],
+      xPositions: number[],
+    ) => {
+      const columns: Array<
+        Array<{
+          key: string;
+          top: Quarterback | null;
+          bottom: Quarterback | null;
+          pick: 0 | 1 | null;
+          topBox: { x: number; y: number; width: number; height: number };
+          bottomBox: { x: number; y: number; width: number; height: number };
+          centerY: number;
+        }>
+      > = [];
+      let previousCenters: number[] = [];
+
+      rounds.forEach((matches, roundIndex) => {
+        const x = xPositions[roundIndex];
+        const column = matches.map((match, matchIndex) => {
+          const topY =
+            roundIndex === 0
+              ? topOffset + matchIndex * matchStride
+              : previousCenters[matchIndex * 2] - cardHeight / 2;
+          const bottomY =
+            roundIndex === 0
+              ? topY + cardHeight + slotGap
+              : previousCenters[matchIndex * 2 + 1] - cardHeight / 2;
+          const topCenterY = topY + cardHeight / 2;
+          const bottomCenterY = bottomY + cardHeight / 2;
+          const centerY = (topCenterY + bottomCenterY) / 2;
+
+          return {
+            key: `${side}-${roundIndex}-${matchIndex}`,
+            top: match.top,
+            bottom: match.bottom,
+            pick: match.pick,
+            topBox: { x, y: topY, width: cardWidth, height: cardHeight },
+            bottomBox: { x, y: bottomY, width: cardWidth, height: cardHeight },
+            centerY,
+          };
+        });
+
+        columns.push(column);
+        previousCenters = column.map((match) => match.centerY);
+      });
+
+      columns.forEach((column, roundIndex) => {
+        const nextX =
+          roundIndex === columns.length - 1
+            ? side === "left"
+              ? finalLeftX
+              : finalRightX + finalCardWidth
+            : side === "left"
+              ? xPositions[roundIndex + 1]
+              : xPositions[roundIndex + 1] + cardWidth;
+
+        column.forEach((match) => {
+          const joinX =
+            side === "left"
+              ? match.topBox.x + match.topBox.width + connectorGap
+              : match.topBox.x - connectorGap;
+          const startX =
+            side === "left" ? match.topBox.x + match.topBox.width : match.topBox.x;
+          const endX = nextX;
+          const topY = match.topBox.y + match.topBox.height / 2;
+          const bottomY = match.bottomBox.y + match.bottomBox.height / 2;
+          const horizontalStart =
+            side === "left"
+              ? `M ${startX} ${topY} L ${joinX} ${topY} M ${startX} ${bottomY} L ${joinX} ${bottomY}`
+              : `M ${startX} ${topY} L ${joinX} ${topY} M ${startX} ${bottomY} L ${joinX} ${bottomY}`;
+          const vertical = `M ${joinX} ${topY} L ${joinX} ${bottomY}`;
+          const carry = `M ${joinX} ${match.centerY} L ${endX} ${match.centerY}`;
+
+          lines.push({
+            key: `line-${match.key}`,
+            d: `${horizontalStart} ${vertical} ${carry}`,
+          });
+        });
+      });
+
+      return columns;
+    };
+
+    const leftColumns = buildSide(
+      "left",
+      [
+        bracketShareRounds[0]?.matches.slice(0, 8) ?? [],
+        bracketShareRounds[1]?.matches.slice(0, 4) ?? [],
+        bracketShareRounds[2]?.matches.slice(0, 2) ?? [],
+        bracketShareRounds[3]?.matches.slice(0, 1) ?? [],
+      ],
+      leftRoundX,
+    );
+
+    const rightColumns = buildSide(
+      "right",
+      [
+        bracketShareRounds[0]?.matches.slice(8, 16) ?? [],
+        bracketShareRounds[1]?.matches.slice(4, 8) ?? [],
+        bracketShareRounds[2]?.matches.slice(2, 4) ?? [],
+        bracketShareRounds[3]?.matches.slice(1, 2) ?? [],
+      ],
+      rightRoundX,
+    );
+
+    const finalMatch = bracketShareRounds[4]?.matches[0] ?? { top: null, bottom: null, pick: null };
+    const finalCenterY = leftColumns[3]?.[0]?.centerY ?? canvasHeight / 2;
+    const finalTopBox = {
+      x: finalLeftX,
+      y: finalCenterY - finalCardHeight / 2,
+      width: finalCardWidth,
+      height: finalCardHeight,
+    };
+    const finalBottomBox = {
+      x: finalRightX,
+      y: finalCenterY - finalCardHeight / 2,
+      width: finalCardWidth,
+      height: finalCardHeight,
+    };
+
+    lines.push({
+      key: "line-final-center",
+      d: `M ${finalTopBox.x + finalTopBox.width} ${finalCenterY} L ${finalBottomBox.x} ${finalCenterY}`,
+    });
+
+    return {
+      canvasWidth,
+      canvasHeight,
+      lines,
+      leftColumns,
+      rightColumns,
+      finalMatch: {
+        ...finalMatch,
+        topBox: finalTopBox,
+        bottomBox: finalBottomBox,
+      },
+    };
+  }, [bracketShareRounds]);
   const handleClassicDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over || active.id === over.id) {
       return;
@@ -640,52 +900,90 @@ export default function QuarterbackBoard({
     await copyValue(shareUrl, "Link");
   };
 
-  const renderSharePreview = (ref: React.RefObject<HTMLDivElement | null>) => (
+  const openBlindShare = () => {
+    setShareViewOpen(true);
+  };
+
+  const renderScenarioSelector = () => (
+    <>
+      <button
+        className={styles.secondaryButton}
+        onClick={() => setScenarioPickerOpen((current) => !current)}
+        type="button"
+      >
+        {scenarioPickerOpen ? "Hide scenario" : "Choose your scenario"}
+      </button>
+      {scenarioPickerOpen ? (
+        <div className={styles.scenarioCard}>
+          <div className={styles.scenarioHeader}>
+            <span className={styles.cardLabel}>Scenario</span>
+            <p>Choose the lens for how you want to rank these quarterbacks.</p>
+          </div>
+          <select
+            className={styles.scenarioSelect}
+            onChange={(event) => setSelectedScenario(event.target.value)}
+            value={selectedScenario}
+          >
+            <option value={NO_SCENARIO_VALUE}>No scenario selected</option>
+            {SCENARIO_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+            <option value={CUSTOM_SCENARIO_VALUE}>Write your own</option>
+          </select>
+          {selectedScenario === CUSTOM_SCENARIO_VALUE ? (
+            <input
+              className={styles.scenarioInput}
+              onChange={(event) => setCustomScenario(event.target.value)}
+              placeholder="Enter your own scenario"
+              type="text"
+              value={customScenario}
+            />
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+
+  const renderRankingSharePreview = (ref: React.RefObject<HTMLDivElement | null>) => (
     <div className={`${styles.sharePreview} ${styles.sharePreviewDesktop}`} ref={ref}>
       <header className={styles.sharePreviewHeader}>
         <div>
-          <p className={styles.shareEyebrow}>SnapQuarterback</p>
-          <h3>{isSharingBlindResult ? "Blind QB ranking" : "Your QB ranking"}</h3>
+          <h3>{isSharingBlindMode ? "Blind QB ranking" : "Your QB ranking"}</h3>
           <p className={styles.shareSubcopy}>Saved on {new Date().toLocaleDateString()}</p>
         </div>
+        {!isSharingBlindMode && activeScenario ? (
+          <div className={styles.shareScenario}>
+            <span>Scenario</span>
+            <strong>{activeScenario}</strong>
+          </div>
+        ) : null}
       </header>
 
-      <div className={styles.shareHighlights}>
-        <article className={styles.shareHighlightCard}>
-          <span>{isSharingBlindResult ? "Blind QB1" : "QB1"}</span>
-          <strong>{quarterbackMap.get(exportRanking[0])?.player}</strong>
-          <p>{quarterbackMap.get(exportRanking[0])?.teamName}</p>
-        </article>
-        <article className={styles.shareHighlightCard}>
-          <span>Top 5</span>
-          <strong>{exportTopPlayers.join(", ")}</strong>
-          <p>{isSharingBlindResult ? "Locked in from your blind round" : "Headliners from this board"}</p>
-        </article>
-        <article className={styles.shareHighlightCard}>
-          <span>{isSharingBlindResult ? "Round" : "Format"}</span>
-          <strong>{isSharingBlindResult ? `Blind top ${exportRanking.length}` : "1 through 32"}</strong>
-          <p>{isSharingBlindResult ? "Final placements with no take-backs" : "All current starters in one frame"}</p>
-        </article>
-      </div>
-
-      <div className={`${styles.shareGrid} ${isSharingBlindResult ? styles.shareGridBlind : ""}`}>
+      <div className={`${styles.shareGrid} ${isSharingBlindMode ? styles.shareGridBlind : ""}`}>
         {exportColumns.map((column, columnIndex) => (
           <div className={styles.shareColumn} key={`share-column-${columnIndex}`}>
-            {column.map((id) => {
-              const quarterback = quarterbackMap.get(id);
-
-              if (!quarterback) {
-                return null;
-              }
+            {column.map((entry) => {
+              const quarterback = entry.id ? quarterbackMap.get(entry.id) : null;
 
               return (
-                <div className={styles.shareRow} key={`share-${quarterback.id}`}>
-                  <span className={styles.shareRank}>{exportPlacements[id]}</span>
+                <div className={styles.shareRow} key={`share-${entry.id ?? `open-${entry.placement}`}`}>
+                  <span className={styles.shareRank}>{entry.placement}</span>
+                  {quarterback?.espnPlayerId ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      alt={quarterback.player}
+                      className={styles.shareHeadshot}
+                      src={`https://a.espncdn.com/i/headshots/nfl/players/full/${quarterback.espnPlayerId}.png`}
+                    />
+                  ) : (
+                    <div className={styles.shareHeadshotPlaceholder} />
+                  )}
                   <div className={styles.sharePlayer}>
-                    <strong>{quarterback.player}</strong>
-                    <span>{quarterback.team}</span>
+                    <strong>{quarterback?.player ?? "Not selected yet"}</strong>
+                    <span>{quarterback?.team ?? "Open slot"}</span>
                   </div>
-                  <span className={styles.shareConference}>{quarterback.conference}</span>
                 </div>
               );
             })}
@@ -700,16 +998,126 @@ export default function QuarterbackBoard({
     </div>
   );
 
+  const renderBracketSharePreview = (ref: React.RefObject<HTMLDivElement | null>) => (
+    <div
+      className={`${styles.sharePreview} ${styles.sharePreviewDesktop} ${styles.shareBracketPreview}`}
+      ref={ref}
+    >
+      <header className={styles.sharePreviewHeader}>
+        <div>
+          <h3>Your QB bracket</h3>
+          <p className={styles.shareSubcopy}>Saved on {new Date().toLocaleDateString()}</p>
+        </div>
+        <div className={styles.shareBracketHeaderAside}>
+          {activeScenario ? (
+            <div className={styles.shareScenario}>
+              <span>Scenario</span>
+              <strong>{activeScenario}</strong>
+            </div>
+          ) : null}
+          <div className={styles.shareChampionCard}>
+            <span>Champion</span>
+            <strong>{bracketChampionId ? quarterbackMap.get(bracketChampionId)?.player : "Still deciding"}</strong>
+          </div>
+        </div>
+      </header>
+
+      <div className={styles.shareBracketTree}>
+        <svg
+          aria-hidden="true"
+          className={styles.shareBracketSvg}
+          viewBox={`0 0 ${bracketShareTree.canvasWidth} ${bracketShareTree.canvasHeight}`}
+        >
+          {bracketShareTree.lines.map((line) => (
+            <path className={styles.shareBracketPath} d={line.d} key={line.key} />
+          ))}
+        </svg>
+
+        {[...bracketShareTree.leftColumns.flat(), ...bracketShareTree.rightColumns.flat()].map((match) =>
+          [0, 1].map((side) => {
+            const quarterback = side === 0 ? match.top : match.bottom;
+            const box = side === 0 ? match.topBox : match.bottomBox;
+            const isPicked = match.pick === side;
+
+            return (
+              <div
+                className={`${styles.shareBracketNode} ${isPicked ? styles.shareBracketNodePicked : ""}`}
+                key={`${match.key}-${side}`}
+                style={{
+                  left: `${box.x}px`,
+                  top: `${box.y}px`,
+                  width: `${box.width}px`,
+                  height: `${box.height}px`,
+                }}
+              >
+                {quarterback?.espnPlayerId ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    alt={quarterback.player}
+                    className={styles.shareBracketNodeHeadshot}
+                    src={`https://a.espncdn.com/i/headshots/nfl/players/full/${quarterback.espnPlayerId}.png`}
+                  />
+                ) : (
+                  <div className={styles.shareBracketNodePlaceholder} />
+                )}
+                <span className={styles.shareBracketNodeName}>{quarterback?.player ?? "TBD"}</span>
+              </div>
+            );
+          }),
+        )}
+
+        {[0, 1].map((side) => {
+          const quarterback = side === 0 ? bracketShareTree.finalMatch.top : bracketShareTree.finalMatch.bottom;
+          const box = side === 0 ? bracketShareTree.finalMatch.topBox : bracketShareTree.finalMatch.bottomBox;
+          const isPicked = bracketShareTree.finalMatch.pick === side;
+
+          return (
+            <div
+              className={`${styles.shareBracketNode} ${styles.shareBracketFinalNode} ${isPicked ? styles.shareBracketNodePicked : ""}`}
+              key={`final-${side}`}
+              style={{
+                left: `${box.x}px`,
+                top: `${box.y}px`,
+                width: `${box.width}px`,
+                height: `${box.height}px`,
+              }}
+            >
+              {quarterback?.espnPlayerId ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  alt={quarterback.player}
+                  className={styles.shareBracketNodeHeadshot}
+                  src={`https://a.espncdn.com/i/headshots/nfl/players/full/${quarterback.espnPlayerId}.png`}
+                />
+              ) : (
+                <div className={styles.shareBracketNodePlaceholder} />
+              )}
+              <span className={styles.shareBracketNodeName}>{quarterback?.player ?? "TBD"}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <footer className={styles.shareFooter}>
+        <span>snapquarterback</span>
+        <span>Build yours. Save it. Debate it.</span>
+      </footer>
+    </div>
+  );
+
+  const renderSharePreview = (ref: React.RefObject<HTMLDivElement | null>) =>
+    isSharingBracket ? renderBracketSharePreview(ref) : renderRankingSharePreview(ref);
+
   return (
     <main className={styles.page}>
       <section className={styles.hero}>
         <div className={styles.heroTop}>
           <div>
             <p className={styles.eyebrow}>NFL QB Tiers</p>
-            <h1>Rank every current starting quarterback your way.</h1>
+            <h1>Rank every current{"\u00a0"}starting quarterback your way.</h1>
             <p className={styles.lede}>
-              Build a full 1-to-32 board in classic mode, test your instincts in blind mode, or settle it
-              in the QB bracket.
+              Test your instincts in blind mode, settle it in the QB bracket, or build a full 1-to-32
+              board in classic mode.
             </p>
           </div>
           <div className={styles.heroArtWrap}>
@@ -721,42 +1129,19 @@ export default function QuarterbackBoard({
             />
           </div>
         </div>
-        <div className={styles.summaryGrid}>
-          <article className={styles.card}>
-            <span className={styles.cardLabel}>QB1</span>
-            <strong>{quarterbackMap.get(ranking[0])?.player}</strong>
-            <span>{quarterbackMap.get(ranking[0])?.teamName}</span>
-          </article>
-          <article className={styles.card}>
-            <span className={styles.cardLabel}>Top five</span>
-            <strong>{topFive.join(", ")}</strong>
-            <span>Instantly updates as you reorder the board.</span>
-          </article>
-        </div>
-
       </section>
 
       <section className={styles.content}>
         <div className={styles.panel}>
           <div className={styles.panelHeader}>
-            <div>
-              <h2>Your ranking</h2>
-              <p>
-                {mode === "classic"
-                  ? "Drag player cards up and down to build the exact board that matches your take."
-                  : mode === "blind"
-                    ? "Blind mode: place each quarterback as it appears. Every pick is final and you cannot see who is next."
-                    : "Bracket mode: randomized head-to-head matchups. Change an earlier pick and anything downstream resets."}
-              </p>
-            </div>
             <div className={styles.panelActions}>
               <div className={styles.modeToggle}>
                 <button
-                  className={`${styles.modeButton} ${mode === "classic" ? styles.modeButtonActive : ""}`}
-                  onClick={() => selectMode("classic")}
+                  className={`${styles.modeButton} ${mode === "blind" ? styles.modeButtonActive : ""}`}
+                  onClick={() => selectMode("blind")}
                   type="button"
                 >
-                  Classic
+                  Blind
                 </button>
                 <button
                   className={`${styles.modeButton} ${mode === "bracket" ? styles.modeButtonActive : ""}`}
@@ -766,23 +1151,11 @@ export default function QuarterbackBoard({
                   Bracket
                 </button>
                 <button
-                  className={`${styles.modeButton} ${mode === "blind" ? styles.modeButtonActive : ""}`}
-                  onClick={() => selectMode("blind")}
+                  className={`${styles.modeButton} ${mode === "classic" ? styles.modeButtonActive : ""}`}
+                  onClick={() => selectMode("classic")}
                   type="button"
                 >
-                  Blind
-                </button>
-              </div>
-              <div className={styles.buttonRow}>
-                <button
-                  className={styles.secondaryButton}
-                  onClick={mode === "bracket" ? resetBracket : resetRanking}
-                  type="button"
-                >
-                  {mode === "bracket" ? "Reset bracket" : "Reset board"}
-                </button>
-                <button className={styles.secondaryButton} onClick={() => setShareViewOpen(true)} type="button">
-                  Share board
+                  Classic
                 </button>
               </div>
             </div>
@@ -793,9 +1166,27 @@ export default function QuarterbackBoard({
               <DndContext collisionDetection={closestCenter} onDragEnd={handleClassicDragEnd} sensors={sensors}>
                 <SortableContext items={ranking} strategy={verticalListSortingStrategy}>
                   <div className={styles.classicBoard}>
-                    <div className={styles.internsNote}>
-                      <span className={styles.cardLabel}>Interns Ranking</span>
-                      <p>The classic board starts in the SnapBack interns average ranking order before you make your own moves.</p>
+                    <div className={styles.modeBanner}>
+                      <div>
+                        <span className={styles.cardLabel}>Classic Mode</span>
+                        <strong>Build your full QB board</strong>
+                        <span>Drag player cards up and down until the ranking matches your take.</span>
+                      </div>
+                      <div className={`${styles.modeBannerActions} ${styles.modeBannerActionsCentered}`}>
+                        <button className={styles.secondaryButton} onClick={resetRanking} type="button">
+                          Reset Board
+                        </button>
+                        {renderScenarioSelector()}
+                      </div>
+                    </div>
+                    <div className={styles.panelShareRow}>
+                      <button
+                        className={`${styles.primaryButton} ${styles.shareModeButton}`}
+                        onClick={() => setShareViewOpen(true)}
+                        type="button"
+                      >
+                        Share Board
+                      </button>
                     </div>
                     {classicRankingList}
                   </div>
@@ -803,9 +1194,27 @@ export default function QuarterbackBoard({
               </DndContext>
             ) : (
               <div className={styles.classicBoard}>
-                <div className={styles.internsNote}>
-                  <span className={styles.cardLabel}>Interns Ranking</span>
-                  <p>The classic board starts in the SnapBack interns average ranking order before you make your own moves.</p>
+                <div className={styles.modeBanner}>
+                  <div>
+                    <span className={styles.cardLabel}>Classic Mode</span>
+                    <strong>Build your full QB board</strong>
+                    <span>Drag player cards up and down until the ranking matches your take.</span>
+                  </div>
+                  <div className={`${styles.modeBannerActions} ${styles.modeBannerActionsCentered}`}>
+                    <button className={styles.secondaryButton} onClick={resetRanking} type="button">
+                      Reset Board
+                    </button>
+                    {renderScenarioSelector()}
+                  </div>
+                </div>
+                <div className={styles.panelShareRow}>
+                  <button
+                    className={`${styles.primaryButton} ${styles.shareModeButton}`}
+                    onClick={() => setShareViewOpen(true)}
+                    type="button"
+                  >
+                    Share Board
+                  </button>
                 </div>
                 {classicRankingList}
               </div>
@@ -814,7 +1223,7 @@ export default function QuarterbackBoard({
 
           {mode === "bracket" ? (
             <div className={styles.bracketBoard}>
-              <div className={styles.bracketBanner}>
+              <div className={styles.modeBanner}>
                 <div>
                   <span className={styles.cardLabel}>Bracket Mode</span>
                   <strong>{bracketChampionId ? `${quarterbackMap.get(bracketChampionId)?.player} is your champion` : "Pick your QB champion"}</strong>
@@ -824,8 +1233,23 @@ export default function QuarterbackBoard({
                       : "Use reset to clear picks or randomize to shuffle the field."}
                   </span>
                 </div>
-                <button className={styles.primaryButton} onClick={randomizeBracket} type="button">
-                  Randomize matchups
+                <div className={styles.modeBannerActions}>
+                  <button className={styles.primaryButton} onClick={randomizeBracket} type="button">
+                    Randomize Matchups
+                  </button>
+                  <button className={styles.secondaryButton} onClick={resetBracket} type="button">
+                    Reset Bracket
+                  </button>
+                  {renderScenarioSelector()}
+                </div>
+              </div>
+              <div className={styles.panelShareRow}>
+                <button
+                  className={`${styles.primaryButton} ${styles.shareModeButton}`}
+                  onClick={() => setShareViewOpen(true)}
+                  type="button"
+                >
+                  Share Bracket
                 </button>
               </div>
               <div className={styles.bracketGrid}>
@@ -883,6 +1307,15 @@ export default function QuarterbackBoard({
 
           {mode === "blind" && blindStage === "setup" ? (
             <div className={styles.blindSetup}>
+              <div className={styles.panelShareRow}>
+                <button
+                  className={`${styles.primaryButton} ${styles.shareModeButton}`}
+                  onClick={openBlindShare}
+                  type="button"
+                >
+                  Share Blind Ranking
+                </button>
+              </div>
               <p>
                 Quarterbacks appear one at a time in random order. Drop each into any open slot to lock in
                 its rank. Pick how many you want to blind-rank this round.
@@ -908,17 +1341,31 @@ export default function QuarterbackBoard({
 
           {mode === "blind" && blindStage === "playing" && blindCurrent ? (
             <div className={styles.blindBoard}>
-              <div className={styles.currentCard}>
-                <span className={styles.cardLabel}>
-                  Place {placedCount + 1} of {blindSlots.length}
-                </span>
-                <strong>{quarterbackMap.get(blindCurrent)?.player}</strong>
-                <span>
-                  {quarterbackMap.get(blindCurrent)?.teamName} · {quarterbackMap.get(blindCurrent)?.conference}
-                </span>
-                <span className={styles.blindHint}>
-                  {blindQueue.length} still to come. Choose a slot now. No take-backs.
-                </span>
+              <div className={`${styles.currentCard} ${styles.currentCardHeader}`}>
+                <div className={styles.currentCardContent}>
+                  <span className={styles.cardLabel}>
+                    Place {placedCount + 1} of {blindSlots.length}
+                  </span>
+                  <strong>{quarterbackMap.get(blindCurrent)?.player}</strong>
+                  <span>
+                    {quarterbackMap.get(blindCurrent)?.teamName} · {quarterbackMap.get(blindCurrent)?.conference}
+                  </span>
+                  <span className={styles.blindHint}>
+                    {blindQueue.length} still to come. Choose a slot now. No take-backs.
+                  </span>
+                </div>
+                <button className={styles.secondaryButton} onClick={() => startBlindRound(blindCount)} type="button">
+                  Start Over
+                </button>
+              </div>
+              <div className={styles.panelShareRow}>
+                <button
+                  className={`${styles.primaryButton} ${styles.shareModeButton}`}
+                  onClick={openBlindShare}
+                  type="button"
+                >
+                  Share Blind Ranking
+                </button>
               </div>
               <ol className={styles.slotList}>
                 {blindSlots.map((id, index) => {
@@ -949,10 +1396,24 @@ export default function QuarterbackBoard({
 
           {mode === "blind" && blindStage === "done" ? (
             <div className={styles.blindBoard}>
-              <div className={styles.currentCard}>
-                <span className={styles.cardLabel}>Round complete</span>
-                <strong>Your blind top {blindSlots.length}</strong>
-                <span>Apply these locked results to your full board or run another blind round.</span>
+              <div className={`${styles.currentCard} ${styles.currentCardHeader}`}>
+                <div className={styles.currentCardContent}>
+                  <span className={styles.cardLabel}>Round complete</span>
+                  <strong>Your blind top {blindSlots.length}</strong>
+                  <span>Apply these locked results to your full board or run another blind round.</span>
+                </div>
+                <button className={styles.secondaryButton} onClick={() => startBlindRound(blindCount)} type="button">
+                  Start Over
+                </button>
+              </div>
+              <div className={styles.panelShareRow}>
+                <button
+                  className={`${styles.primaryButton} ${styles.shareModeButton}`}
+                  onClick={openBlindShare}
+                  type="button"
+                >
+                  Share Blind Ranking
+                </button>
               </div>
               <ol className={styles.rankingList}>
                 {blindSlots.map((id, index) => {
@@ -1002,22 +1463,30 @@ export default function QuarterbackBoard({
           <div className={styles.shareModalContent}>
             <div className={styles.shareModalHeader}>
               <div>
-                <h2>{isSharingBlindResult ? "Share your blind ranking" : "Share your board"}</h2>
+                <h2>
+                  {isSharingBlindMode
+                    ? "Share your blind ranking"
+                    : isSharingBracket
+                      ? "Share your bracket"
+                      : "Share your board"}
+                </h2>
                 <p>
-                  {isSharingBlindResult
-                    ? "Save the blind-ranking card below. Apply it to your board first if you also want a shareable link."
-                    : "Copy the link or save the full ranking card below."}
+                  {isSharingBlindMode
+                    ? "Save the blind-ranking card below. Unpicked slots stay marked until you place each player."
+                    : isSharingBracket
+                      ? "Copy the link or save the bracket card below."
+                      : "Copy the link or save the full ranking card below."}
                 </p>
               </div>
               {shareMessage ? <span className={styles.copyMessage}>{shareMessage}</span> : null}
             </div>
 
-            <div className={`${styles.shareControls} ${isSharingBlindResult ? styles.shareControlsMuted : ""}`}>
+            <div className={`${styles.shareControls} ${isSharingBlindMode ? styles.shareControlsMuted : ""}`}>
               <label className={styles.fieldLabel} htmlFor="share-url">
-                {isSharingBlindResult ? "Board link" : "Share link"}
+                {isSharingBlindMode ? "Board link" : "Share link"}
               </label>
               <textarea className={styles.textarea} id="share-url" readOnly value={shareUrl} />
-              {isSharingBlindResult ? (
+              {isSharingBlindMode ? (
                 <p className={styles.shareNote}>
                   This link still opens your current full board. The PNG below captures your blind ranking result.
                 </p>
@@ -1028,6 +1497,9 @@ export default function QuarterbackBoard({
                 </button>
                 <button className={styles.primaryButton} onClick={() => copyValue(shareUrl, "Link")} type="button">
                   Copy link
+                </button>
+                <button className={styles.primaryButton} onClick={downloadShareImage} type="button">
+                  {canShareImageFile ? "Save image" : "Download PNG"}
                 </button>
               </div>
             </div>
@@ -1043,9 +1515,6 @@ export default function QuarterbackBoard({
             </div>
 
             <div className={styles.shareModalActions}>
-              <button className={styles.primaryButton} onClick={downloadShareImage} type="button">
-                {canShareImageFile ? "Save image" : "Download PNG"}
-              </button>
               <button className={styles.secondaryButton} onClick={() => setShareViewOpen(false)} type="button">
                 Close
               </button>
