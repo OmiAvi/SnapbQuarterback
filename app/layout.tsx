@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://snapquarterback.com";
+const previewImage = new URL("/opengraph.png", siteUrl).toString();
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
     siteName: "snapquarterback",
     images: [
       {
-        url: "/Icon-Yellow.png",
+        url: previewImage,
         width: 4356,
         height: 2715,
         alt: "snapquarterback hat logo",
@@ -34,7 +35,7 @@ export const metadata: Metadata = {
     title: "snapquarterback",
     description:
       "Build your own ranking of all 32 NFL starting quarterbacks, try blind mode, or pick a champion in the QB bracket.",
-    images: ["/Icon-Yellow.png"],
+    images: [previewImage],
   },
 };
 
