@@ -891,7 +891,7 @@ export default function QuarterbackBoard({
         navigator.canShare?.({ files: [file] })
       ) {
         await navigator.share({
-          title: "SnapbQuarterback board",
+          title: "SnapQuarterback board",
           text: "Save or share my QB rankings image.",
           files: [file],
         });
@@ -921,7 +921,7 @@ export default function QuarterbackBoard({
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "SnapbQuarterback board",
+          title: "SnapQuarterback board",
           text: "Check out my QB rankings.",
           url: shareUrl,
         });
